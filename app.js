@@ -308,6 +308,11 @@ if (typeof document !== 'undefined') {
   function home() {
     const joinAsArtist = () => { ui.accessRole = 'artist'; ui.accountMode = 'signup'; go('access'); };
     const browseAsTourist = () => { ui.visitor = true; go('tourist'); };
+    const homeImages = [
+      { src: 'images/home-performance.png', alt: 'A Kathakali performer in costume on stage', label: 'Performance' },
+      { src: 'images/home-celebration.png', alt: 'Traditional stone sculptures dressed for a celebration', label: 'Celebration' },
+      { src: 'images/home-community.png', alt: 'A colorful temple tower at sunset', label: 'Community' },
+    ];
     return h('section', { class: 'home' },
       h('section', { class: 'home-hero' },
         h('div', { class: 'home-copy' }, h('p', { class: 'eyebrow' }, 'A stage for living traditions'),
@@ -318,8 +323,9 @@ if (typeof document !== 'undefined') {
             h('button', { class: 'btn ghost', type: 'button', onclick: joinAsArtist }, 'Join as an artist'),
             h('button', { class: 'btn ghost', type: 'button', onclick: browseAsTourist }, 'Tourist')),
           h('p', { class: 'muted home-note' }, 'Four fictional artist groups · Booking and payments are simulated.')),
-        h('div', { class: 'home-artwork' }, S.profiles.slice(0, 3).map((p, index) => h('figure', { class: 'home-art ' + (index === 0 ? 'home-art-main' : '') },
-          art(p.pal), h('figcaption', {}, h('span', {}, `${p.form} · ${p.region}`), h('b', {}, p.name)))))),
+        h('div', { class: 'home-artwork' }, homeImages.map((image, index) => h('figure', { class: 'home-art ' + (index === 0 ? 'home-art-main' : '') },
+          h('img', { src: image.src, alt: image.alt, loading: index === 0 ? 'eager' : 'lazy' }),
+          h('figcaption', {}, h('b', {}, image.label)))))),
       h('section', { class: 'home-steps' }, h('h2', {}, 'A clear path from discovery to performance'),
         h('div', { class: 'home-step-grid' },
           h('article', {}, h('span', { class: 'home-step-number' }, '01'), h('h3', {}, 'Describe your event'), h('p', {}, 'Set a date, location and budget to find suitable groups.')),
