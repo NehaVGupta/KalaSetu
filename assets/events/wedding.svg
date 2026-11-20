@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Wedding celebration</title>
+  <desc id="desc">A flower-adorned wedding mandap with lamps and a ceremonial aisle.</desc>
+  <defs>
+    <linearGradient id="backdrop" x2="0" y2="1"><stop stop-color="#60413d"/><stop offset="1" stop-color="#c88167"/></linearGradient>
+    <linearGradient id="aisle" x2="0" y2="1"><stop stop-color="#a65f43"/><stop offset="1" stop-color="#30251f"/></linearGradient>
+  </defs>
+  <path fill="url(#backdrop)" d="M0 0h1200v675H0z"/>
+  <circle cx="600" cy="225" r="210" fill="#edc989" opacity=".18"/>
+  <path d="M0 510h1200v165H0z" fill="#34483d"/>
+  <path d="M155 500V220h65v280M980 500V220h65v280" fill="#af9058"/>
+  <path d="M105 240h990l-62 75H167z" fill="#af9058"/>
+  <path d="M172 315q428 102 856 0v52q-428 105-856 0z" fill="#a65f43"/>
+  <path d="M250 386q350 80 700 0" fill="none" stroke="#edc989" stroke-width="18"/>
+  <path d="M275 496V380m650 116V380" stroke="#edc989" stroke-width="12"/>
+  <g fill="#f5ebdd"><circle cx="185" cy="287" r="22"/><circle cx="245" cy="300" r="20"/><circle cx="305" cy="312" r="18"/><circle cx="365" cy="324" r="17"/><circle cx="425" cy="334" r="16"/><circle cx="485" cy="343" r="15"/><circle cx="545" cy="349" r="14"/><circle cx="605" cy="351" r="14"/><circle cx="665" cy="349" r="14"/><circle cx="725" cy="343" r="15"/><circle cx="785" cy="334" r="16"/><circle cx="845" cy="324" r="17"/><circle cx="905" cy="312" r="18"/><circle cx="965" cy="300" r="20"/><circle cx="1025" cy="287" r="22"/></g>
+  <path d="M420 505V332h360v173" fill="#34483d" stroke="#edc989" stroke-width="12"/>
+  <path d="M390 340 600 240l210 100z" fill="#a65f43" stroke="#edc989" stroke-width="12"/>
+  <path d="M470 505V382h260v123" fill="#30251f"/>
+  <g fill="#edc989"><path d="M480 456q20-48 40 0v28h-40z"/><path d="M560 456q20-48 40 0v28h-40z"/><path d="M640 456q20-48 40 0v28h-40z"/></g>
+  <path d="M480 675 555 505h90l75 170z" fill="url(#aisle)"/>
+  <g fill="#f5ebdd" opacity=".9"><path d="m600 525 8 18 20 2-15 12 5 19-18-10-18 10 5-19-15-12 20-2z"/><path d="m600 602 8 18 20 2-15 12 5 19-18-10-18 10 5-19-15-12 20-2z"/></g>
+  <g fill="#e8b866"><path d="M128 492q28-44 56 0v23h-56z"/><path d="M1016 492q28-44 56 0v23h-56z"/></g>
+  <g fill="#a65f43"><circle cx="160" cy="455" r="13"/><circle cx="1048" cy="455" r="13"/></g>
+</svg>

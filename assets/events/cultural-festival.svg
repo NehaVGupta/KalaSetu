@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Cultural festival</title>
+  <desc id="desc">A colorful folk performance on an outdoor festival stage at dusk.</desc>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#293b3a"/><stop offset="1" stop-color="#a65f43"/></linearGradient>
+    <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#7e4938"/><stop offset="1" stop-color="#30251f"/></linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1200v675H0z"/>
+  <circle cx="930" cy="142" r="68" fill="#edc989" opacity=".8"/>
+  <path d="M0 396 150 280l128 116 147-153 145 153 148-122 150 122 131-166 201 166v279H0z" fill="#34483d" opacity=".75"/>
+  <path d="M0 472h1200v203H0z" fill="url(#floor)"/>
+  <path d="M106 438V205h42v233M1052 438V205h42v233M85 220h1030l-38 48H123z" fill="#af9058"/>
+  <path d="M155 269h890v20H155z" fill="#f5ebdd" opacity=".8"/>
+  <path d="M189 288v58m90-58v58m90-58v58m90-58v58m90-58v58m90-58v58m90-58v58m90-58v58m90-58v58" stroke="#af9058" stroke-width="8"/>
+  <g fill="#e8b866"><circle cx="190" cy="352" r="13"/><circle cx="280" cy="352" r="13"/><circle cx="370" cy="352" r="13"/><circle cx="460" cy="352" r="13"/><circle cx="550" cy="352" r="13"/><circle cx="640" cy="352" r="13"/><circle cx="730" cy="352" r="13"/><circle cx="820" cy="352" r="13"/><circle cx="910" cy="352" r="13"/><circle cx="1000" cy="352" r="13"/></g>
+  <g stroke="#f5ebdd" stroke-width="12" stroke-linecap="round" fill="none">
+    <path d="m435 435 10 69m-9-53-38-25m42 21 38-27m-34 83-33 42m36-42 38 43"/>
+    <path d="m758 430-9 72m8-53-39-22m36 24 42-25m-46 76-37 40m40-40 37 40"/>
+  </g>
+  <g fill="#a65f43" stroke="#edc989" stroke-width="7">
+    <circle cx="445" cy="408" r="20"/><circle cx="758" cy="403" r="20"/>
+    <path d="m423 451-27 53 53 16 24-57zM778 447l31 54-53 18-25-57z"/>
+  </g>
+  <path d="M0 570q40-75 80 0t80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0 80 0v105H0z" fill="#30251f"/>
+  <g fill="#af9058"><circle cx="150" cy="550" r="17"/><circle cx="250" cy="566" r="13"/><circle cx="350" cy="548" r="18"/><circle cx="850" cy="552" r="16"/><circle cx="950" cy="566" r="13"/><circle cx="1050" cy="548" r="18"/></g>
+  <g fill="#f5ebdd" opacity=".85"><path d="m168 574-24 74h49zM263 585l-19 63h39zM370 574l-24 74h49zM868 578l-24 70h48zM966 585l-19 63h39zM1070 574l-24 74h49z"/></g>
+</svg>

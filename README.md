@@ -37,6 +37,7 @@ It addresses challenges such as limited visibility, unclear pricing, uncertain b
 - Browser-based interactive prototype.
 - Deterministic demo rules for artist matching.
 - Browser LocalStorage for saving demo data.
+- Original local SVG illustrations for cultural festivals, college fests, weddings, temple events, and community gatherings; event artwork is matched to the event type and does not require external image hosting.
 - Fictional artist profiles and simulated payment records.
 - No real authentication, online transactions, or backend integration.
 

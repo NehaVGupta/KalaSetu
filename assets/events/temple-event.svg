@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Temple event</title>
+  <desc id="desc">A folk performance and ceremonial lamps in a temple courtyard.</desc>
+  <defs>
+    <linearGradient id="dawn" x2="0" y2="1"><stop stop-color="#34483d"/><stop offset="1" stop-color="#c7835b"/></linearGradient>
+  </defs>
+  <path fill="url(#dawn)" d="M0 0h1200v675H0z"/>
+  <path d="M0 478h1200v197H0z" fill="#30251f"/>
+  <path d="M350 475V240h500v235z" fill="#f5ebdd"/>
+  <path d="M315 250 600 130l285 120z" fill="#a65f43"/>
+  <path d="M405 240v-85h390v85" fill="#af9058"/>
+  <path d="M435 475V300h330v175z" fill="#34483d"/>
+  <path d="M495 475V345q105-120 210 0v130z" fill="#30251f" stroke="#edc989" stroke-width="12"/>
+  <path d="M250 478V295h65v183M885 478V295h65v183" fill="#af9058"/>
+  <path d="M215 302h135l-68-65zM850 302h135l-68-65z" fill="#a65f43"/>
+  <g fill="#e8b866"><path d="M385 290h45v25h-45zM770 290h45v25h-45zM385 350h45v25h-45zM770 350h45v25h-45z"/></g>
+  <g fill="#f5ebdd" opacity=".85"><path d="M110 458q28-45 56 0v20h-56zM200 458q28-45 56 0v20h-56zM944 458q28-45 56 0v20h-56zM1034 458q28-45 56 0v20h-56z"/></g>
+  <g fill="#e8b866"><path d="M120 435q18-35 36 0v23h-36zM210 435q18-35 36 0v23h-36zM954 435q18-35 36 0v23h-36zM1044 435q18-35 36 0v23h-36z"/></g>
+  <path d="M0 573q45-75 90 0t90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0 90 0v102H0z" fill="#34483d"/>
+  <g fill="#a65f43" stroke="#edc989" stroke-width="6"><circle cx="480" cy="355" r="23"/><circle cx="720" cy="355" r="23"/></g>
+  <g stroke="#f5ebdd" stroke-width="11" stroke-linecap="round" fill="none">
+    <path d="m480 386-5 62m4-48-32-22m32 20 31-23m-34 73-25 36m28-36 29 36"/>
+    <path d="m720 386 5 62m-4-48 32-22m-32 20-31-23m34 73 25 36m-28-36-29 36"/>
+  </g>
+  <g fill="#edc989"><path d="M74 546h45l-8 22H82zM1080 546h45l-8 22h-29z"/><circle cx="96" cy="540" r="8"/><circle cx="1102" cy="540" r="8"/></g>
+</svg>

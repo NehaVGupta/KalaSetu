@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">College fest</title>
+  <desc id="desc">A lively student cultural festival staged in a campus courtyard.</desc>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#34483d"/><stop offset="1" stop-color="#d28b5b"/></linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1200v675H0z"/>
+  <circle cx="170" cy="130" r="45" fill="#f5ebdd" opacity=".72"/>
+  <path d="M0 338h1200v337H0z" fill="#30251f"/>
+  <path d="M85 385V188h260v197M855 385V188h260v197" fill="#f5ebdd" opacity=".9"/>
+  <path d="M60 385h310v30H60zM830 385h310v30H830z" fill="#af9058"/>
+  <path d="M114 230h200M114 278h200M884 230h200M884 278h200" stroke="#a65f43" stroke-width="15"/>
+  <path d="M386 410V254l214-90 214 90v156z" fill="#a65f43"/>
+  <path d="M360 255 600 145l240 110z" fill="#af9058"/>
+  <path d="M420 280h360v130H420z" fill="#30251f"/>
+  <path d="M455 296h290v15H455zm0 38h290v12H455z" fill="#f5ebdd" opacity=".8"/>
+  <path d="M398 416h404v34H398z" fill="#edc989"/>
+  <g fill="#f4c778"><path d="m470 252 30 88h-60z"/><path d="m730 252 30 88h-60z"/></g>
+  <g stroke="#f5ebdd" stroke-width="11" stroke-linecap="round" fill="none">
+    <path d="m520 359 5 54m-4-42-30-20m31 19 31-23m-30 65-27 35m30-35 29 36"/>
+    <path d="m676 360-5 53m4-42-31-18m29 19 32-21m-35 62-29 35m32-35 28 35"/>
+  </g>
+  <g fill="#34483d" stroke="#edc989" stroke-width="6"><circle cx="525" cy="342" r="17"/><circle cx="675" cy="342" r="17"/></g>
+  <path d="M0 512q50-95 100 0t100 0 100 0 100 0 100 0 100 0 100 0 100 0 100 0 100 0 100 0 100 0 100 0v163H0z" fill="#30251f"/>
+  <g fill="#af9058"><circle cx="112" cy="484" r="19"/><circle cx="270" cy="491" r="17"/><circle cx="428" cy="484" r="18"/><circle cx="772" cy="484" r="18"/><circle cx="930" cy="491" r="17"/><circle cx="1088" cy="484" r="19"/></g>
+  <g fill="#f5ebdd" opacity=".85"><path d="m132 505-28 92h56zM287 510l-25 87h50zM447 503l-28 94h56zM790 503l-28 94h56zM947 510l-25 87h50zM1108 505l-28 92h56z"/></g>
+  <g fill="#e8b866"><path d="m110 440 15-26 15 26zM1090 440l15-26 15 26z"/></g>
+</svg>

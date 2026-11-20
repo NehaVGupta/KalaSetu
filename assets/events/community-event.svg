@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Community event</title>
+  <desc id="desc">A neighborhood gathering around an open-air folk music stage.</desc>
+  <defs>
+    <linearGradient id="evening" x2="0" y2="1"><stop stop-color="#59634b"/><stop offset="1" stop-color="#d49a68"/></linearGradient>
+  </defs>
+  <path fill="url(#evening)" d="M0 0h1200v675H0z"/>
+  <circle cx="970" cy="130" r="70" fill="#f5ebdd" opacity=".75"/>
+  <path d="M0 390q120-90 240 0t240 0 240 0 240 0 240 0v285H0z" fill="#34483d"/>
+  <path d="M365 455V266h470v189z" fill="#a65f43"/>
+  <path d="M330 276 600 155l270 121z" fill="#af9058"/>
+  <path d="M410 455V315h380v140" fill="#30251f"/>
+  <path d="M430 315h340v18H430z" fill="#f5ebdd" opacity=".85"/>
+  <g fill="#e8b866"><circle cx="450" cy="352" r="12"/><circle cx="510" cy="352" r="12"/><circle cx="570" cy="352" r="12"/><circle cx="630" cy="352" r="12"/><circle cx="690" cy="352" r="12"/><circle cx="750" cy="352" r="12"/></g>
+  <path d="M0 530q60-95 120 0t120 0 120 0 120 0 120 0 120 0 120 0 120 0 120 0 120 0 120 0 120 0v145H0z" fill="#30251f"/>
+  <g fill="#af9058" stroke="#edc989" stroke-width="5">
+    <circle cx="140" cy="486" r="20"/><circle cx="280" cy="500" r="17"/><circle cx="420" cy="486" r="20"/>
+    <circle cx="780" cy="486" r="20"/><circle cx="920" cy="500" r="17"/><circle cx="1060" cy="486" r="20"/>
+  </g>
+  <g fill="#f5ebdd" opacity=".9">
+    <path d="m117 510-28 100h56zM261 520l-24 90h48zM397 510l-28 100h56z"/>
+    <path d="m757 510-28 100h56zM901 520l-24 90h48zM1037 510l-28 100h56z"/>
+  </g>
+  <g stroke="#f5ebdd" stroke-width="10" stroke-linecap="round" fill="none">
+    <path d="m530 394 4 54m-3-42-29-19m30 18 30-21m-31 64-24 32m27-32 27 33"/>
+    <path d="m670 394-4 54m3-42 29-19m-30 18-30-21m31 64 24 32m-27-32-27 33"/>
+  </g>
+  <g fill="#a65f43" stroke="#edc989" stroke-width="5"><circle cx="534" cy="380" r="17"/><circle cx="666" cy="380" r="17"/></g>
+  <path d="M80 337q80-85 160 0m720 0q80-85 160 0" fill="none" stroke="#af9058" stroke-width="8"/>
+</svg>

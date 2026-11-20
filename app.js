@@ -6,13 +6,20 @@ const KEY = 'kalasetu.demo.v1';
 const ROLES = ['organizer', 'artist'];
 const EVENT_TYPES = ['Cultural festival', 'College fest', 'Wedding', 'Temple event', 'Community event'];
 const EVENT_ARTWORK = {
-  festival: { src: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80', alt: 'Audience gathered at a live cultural event', label: 'Live cultural event' },
-  performance: { src: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80', alt: 'Performers on stage at a live event', label: 'Live performance' },
-  wedding: { src: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80', alt: 'Wedding celebration with guests gathered outdoors', label: 'Wedding celebration' },
+  festival: { src: 'assets/events/cultural-festival.svg', alt: 'Illustration of a folk dance performance at an outdoor cultural festival', label: 'Cultural festival' },
+  performance: { src: 'assets/events/cultural-festival.svg', alt: 'Illustration of a folk dance performance on a decorated stage', label: 'Folk performance' },
+  college: { src: 'assets/events/college-fest.svg', alt: 'Illustration of a college cultural fest on an open-air campus stage', label: 'College fest' },
+  wedding: { src: 'assets/events/wedding.svg', alt: 'Illustration of a wedding ceremony beneath a flower-decorated mandap', label: 'Wedding celebration' },
+  temple: { src: 'assets/events/temple-event.svg', alt: 'Illustration of a cultural performance in a temple courtyard', label: 'Temple event' },
+  community: { src: 'assets/events/community-event.svg', alt: 'Illustration of neighbors gathered for a community folk performance', label: 'Community gathering' },
 };
 function eventArtworkFor(details) {
-  const text = `${details.eventType || ''} ${details.event || ''} ${details.description || ''}`.toLowerCase();
+  const type = String(details.eventType || '').toLowerCase();
+  const text = `${type} ${details.event || ''} ${details.description || ''}`.toLowerCase();
   if (/wedding|marriage|engagement|reception/.test(text)) return 'wedding';
+  if (type.includes('college')) return 'college';
+  if (type.includes('temple')) return 'temple';
+  if (type.includes('community')) return 'community';
   if (/dance|folk|temple|ritual|ceremony|bihu|karagattam|kalbelia|kajri/.test(text)) return 'performance';
   return 'festival';
 }
