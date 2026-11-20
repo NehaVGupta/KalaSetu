@@ -3,7 +3,7 @@
 
 /* ================= LOGIC (pure, no DOM) ================= */
 const KEY = 'kalasetu.demo.v1';
-const ROLES = ['organizer', 'artist'];
+const ROLES = ['organizer', 'artist', 'tourist'];
 const EVENT_TYPES = ['Cultural festival', 'College fest', 'Wedding', 'Temple event', 'Community event'];
 const EVENT_ARTWORK = {
   festival: { src: 'assets/events/cultural-festival.svg', alt: 'Illustration of a folk dance performance at an outdoor cultural festival', label: 'Cultural festival' },
@@ -247,7 +247,8 @@ if (typeof document !== 'undefined') {
     try {
       const s = JSON.parse(localStorage.getItem(KEY));
       if (s && s.v === 1 && Array.isArray(s.profiles) && Array.isArray(s.requests)) {
-        if (typeof s.authenticated !== 'boolean') { s.authenticated = false; s.view = 'home'; }
+        s.authenticated = false;
+        s.view = 'access';
         delete s.demoActive;
         if (!Array.isArray(s.wishlist)) s.wishlist = [];
         return s;
@@ -284,7 +285,9 @@ if (typeof document !== 'undefined') {
   const fmtDate = (d) => new Date(d + 'T00:00').toLocaleDateString('en-IN', { dateStyle: 'medium' });
   const label = (r) => statusOf(r) === 'confirmed' && outstandingOf(S, r) === 0 ? 'Completed' : ({ confirmed: 'Confirmed', awaiting_artist: 'Awaiting artist', awaiting_organizer: 'Awaiting organizer', declined: 'Declined' }[statusOf(r)]);
   const badge = (r) => h('span', { class: 'badge ' + statusOf(r) }, label(r));
-  const roleName = (x) => ({ organizer: 'Organizer', artist: 'Artist', system: 'System' }[x]);
+  const roleName = (x) => ({ organizer: 'Organizer', artist: 'Artist', tourist: 'Tourist', system: 'System' }[x]);
+
+  const protectedViews = new Set(['home', 'discover', 'tourist', 'event-detail', 'checkout', 'booking-confirmation', 'wishlist', 'studio', 'request', 'inbox', 'booking']);
 
   let tt;
   function toast(msg, bad) {
@@ -292,6 +295,14 @@ if (typeof document !== 'undefined') {
     clearTimeout(tt); tt = setTimeout(() => { t.className = ''; }, 3800);
   }
   const go = (view) => {
+    if (!S.authenticated && view !== 'access') {
+      ui.history = [];
+      S.view = 'access';
+      save();
+      render();
+      window.scrollTo(0, 0);
+      return;
+    }
     if (S.view !== view) {
       ui.history.push(S.view);
       if (ui.history.length > 24) ui.history.shift();
@@ -314,7 +325,7 @@ if (typeof document !== 'undefined') {
 
   function home() {
     const joinAsArtist = () => { ui.accessRole = 'artist'; ui.accountMode = 'signup'; go('access'); };
-    const browseAsTourist = () => { ui.visitor = true; go('tourist'); };
+    const joinAsTourist = () => { ui.accessRole = 'tourist'; ui.accountMode = 'signup'; go('access'); };
     const homeImages = [
       { src: 'images/home-performance.png', alt: 'A Kathakali performer in costume on stage', label: 'Performance' },
       { src: 'images/home-celebration.png', alt: 'Traditional stone sculptures dressed for a celebration', label: 'Celebration' },
@@ -328,7 +339,7 @@ if (typeof document !== 'undefined') {
           h('div', { class: 'row home-actions' },
             h('button', { class: 'btn', type: 'button', onclick: () => go('access') }, 'Find artists'),
             h('button', { class: 'btn ghost', type: 'button', onclick: joinAsArtist }, 'Join as an artist'),
-            h('button', { class: 'btn ghost', type: 'button', onclick: browseAsTourist }, 'Tourist')),
+            h('button', { class: 'btn ghost', type: 'button', onclick: joinAsTourist }, 'Tourist')),
           h('p', { class: 'muted home-note' }, 'Four fictional artist groups · Booking and payments are simulated.')),
         h('div', { class: 'home-artwork' }, homeImages.map((image, index) => h('figure', { class: 'home-art ' + (index === 0 ? 'home-art-main' : '') },
           h('img', { src: image.src, alt: image.alt, loading: index === 0 ? 'eager' : 'lazy' }),
@@ -343,13 +354,18 @@ if (typeof document !== 'undefined') {
   function access() {
     const mode = (value) => h('button', { type: 'button', class: 'btn ghost', 'aria-pressed': String(ui.accountMode === value), onclick: () => { ui.accountMode = value; render(); } }, value === 'login' ? 'Log in' : 'Sign up');
     const role = (value) => h('button', { type: 'button', class: 'role-choice', 'aria-pressed': String(ui.accessRole === value), onclick: () => { ui.accessRole = value; render(); } },
-      h('b', {}, roleName(value)), h('span', {}, value === 'artist' ? 'Register your art and performance profile' : 'Plan an event and find performers'));
+      h('b', {}, roleName(value)), h('span', {}, value === 'artist' ? 'Register your art and performance profile' : value === 'organizer' ? 'Plan an event and find performers' : 'Explore events and artist offerings'));
     return h('section', { class: 'access' }, h('p', { class: 'eyebrow' }, 'A fairer stage for folk artists'), h('h2', {}, 'Login / Sign up'),
       h('p', { class: 'muted' }, 'Choose a demo role to enter KalaSetu. This prototype does not create accounts or collect credentials.'),
       h('div', { class: 'row mode-switch', role: 'group', 'aria-label': 'Account action' }, mode('login'), mode('signup')),
-      h('div', { class: 'role-choices', role: 'group', 'aria-label': 'Choose your role' }, role('artist'), role('organizer')),
+      h('div', { class: 'role-choices', role: 'group', 'aria-label': 'Choose your role' }, role('artist'), role('organizer'), role('tourist')),
       h('button', { class: 'btn', type: 'button', onclick: () => {
-        ui.visitor = false; S.role = ui.accessRole; S.authenticated = true; go(S.role === 'artist' ? 'studio' : 'request');
+        ui.visitor = false;
+        S.role = ui.accessRole;
+        S.authenticated = true;
+        ui.history = [];
+        const destination = S.role === 'artist' ? 'studio' : S.role === 'tourist' ? 'tourist' : 'request';
+        go(destination);
       } }, `${ui.accountMode === 'login' ? 'Log in' : 'Sign up'} as ${roleName(ui.accessRole)}`),
       h('p', { class: 'muted' }, 'Demo access only · No password, real account, or authentication service.'));
   }
@@ -735,7 +751,12 @@ if (typeof document !== 'undefined') {
         const p = match.profile, selectedMatch = p.id === ui.reqProfile;
         matches.append(h('article', { class: 'card match-card' }, h('div', { class: 'match-top' }, h('span', { class: 'tag' }, `#${index + 1} · ${match.score}% match`),
           h('span', { class: match.withinBudget ? 'ok' : 'muted' }, match.withinBudget ? 'Within budget' : 'Over budget')),
-          h('h3', {}, p.name), h('p', { class: 'muted' }, `${p.form} · ${p.place}, ${p.region}`),
+
+
+
+
+
+          h('h3', {}, p.name), h('p', { class: 'muted' }, `${p.form} · ${p.place}, ${ p.region}`),
           h('div', { class: 'match-reasons' }, match.reasons.map((reason) => h('span', { class: 'chip' }, reason))),
           h('div', { class: 'stats' }, h('span', {}, h('b', {}, inr(p.feePaise + p.travelPaise)), 'total'), h('span', {}, h('b', {}, p.groupSize), 'artists')),
           h('button', { class: selectedMatch ? 'btn alt' : 'btn ghost', type: 'button', 'aria-pressed': String(selectedMatch), disabled: !match.withinBudget,
@@ -846,12 +867,29 @@ if (typeof document !== 'undefined') {
   /* ---- shell ---- */
   const VIEWS = { home: ['Home', home], access: ['Login / Sign up', access], discover: ['Artist directory', discover], tourist: ['Events & offerings', tourist], 'event-detail': ['Event details', eventDetail], checkout: ['Checkout', checkout], 'booking-confirmation': ['Booking confirmed', bookingConfirmation], wishlist: ['Wishlist', wishlist], studio: ['Artist registration', studio], request: ['Event & matches', request], inbox: ['Requests', inbox], booking: ['Bookings', booking] };
   function render() {
-    const visitorMode = ui.visitor && ['tourist', 'event-detail', 'checkout', 'booking-confirmation', 'discover', 'wishlist'].includes(S.view);
+    if (!S.authenticated) {
+      S.view = 'access';
+    } else if (protectedViews.has(S.view)) {
+      const allowed = S.role === 'artist'
+        ? new Set(['home', 'discover', 'wishlist', 'studio', 'inbox', 'booking', 'event-detail'])
+        : S.role === 'organizer'
+          ? new Set(['home', 'discover', 'wishlist', 'request', 'inbox', 'booking', 'event-detail', 'checkout', 'booking-confirmation'])
+          : new Set(['tourist', 'discover', 'wishlist', 'event-detail', 'checkout', 'booking-confirmation']);
+      if (!allowed.has(S.view)) S.view = S.role === 'artist' ? 'studio' : S.role === 'organizer' ? 'request' : 'tourist';
+    }
+    const visitorMode = S.role === 'tourist' && S.authenticated;
     $('nav').hidden = !S.authenticated || visitorMode;
     $('banner').hidden = !S.authenticated || visitorMode;
     $('reset').hidden = !S.authenticated || visitorMode;
     $('back').hidden = ui.history.length === 0;
-    $('nav').replaceChildren(...Object.entries(VIEWS).filter(([k]) => !['access', 'event-detail', 'checkout', 'booking-confirmation'].includes(k)).map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
+    const roleViews = S.role === 'artist'
+      ? new Set(['home', 'discover', 'wishlist', 'studio', 'inbox', 'booking'])
+      : S.role === 'organizer'
+        ? new Set(['home', 'discover', 'wishlist', 'request', 'inbox', 'booking'])
+        : new Set(['tourist', 'discover', 'wishlist']);
+    $('nav').replaceChildren(...Object.entries(VIEWS)
+      .filter(([k]) => roleViews.has(k))
+      .map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
     $('banner').replaceChildren(h('b', {}, 'Next step'), h('span', {}, nextStep(S, S.role), persist ? '' : ' (Browser storage is unavailable, so changes will not survive a refresh.)'));
     $('app').replaceChildren(VIEWS[S.view][1]());
   }
@@ -863,8 +901,14 @@ if (typeof document !== 'undefined') {
   $('back').addEventListener('click', goBack);
   S = load();
   const requestedView = new URLSearchParams(window.location.search).get('view');
-  if (requestedView === 'access') S.view = 'access';
-  else S.view = 'home';
+  if (!S.authenticated) {
+    S.view = 'access';
+  } else if (requestedView && VIEWS[requestedView]) {
+    S.view = requestedView;
+  } else {
+    S.view = S.role === 'artist' ? 'studio' : S.role === 'tourist' ? 'tourist' : 'request';
+  }
+  save();
   render();
 }
 

@@ -20,7 +20,7 @@ main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 2rem}
 .access{max-width:760px;margin:2.5rem auto;padding:clamp(1.25rem,4vw,2.5rem);background:var(--card);border:1px solid var(--line);border-left:6px solid var(--terra);border-radius:8px;box-shadow:0 4px 16px rgba(48,37,31,.07)}
 .access h2{font-size:2rem;margin:.25rem 0}.eyebrow{margin:0;color:var(--terra);font-size:.78rem;font-weight:700;text-transform:uppercase}
 .mode-switch{margin:1rem 0}.mode-switch .btn[aria-pressed=true]{background:var(--forest);border-color:var(--forest);color:#fff}
-.role-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:1.25rem 0}
+.role-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin:1.25rem 0}
 .role-choice{display:flex;flex-direction:column;gap:.35rem;text-align:left;padding:1rem;background:#fffdf8;border:1px solid var(--line);border-radius:8px;color:var(--espresso);font:inherit;cursor:pointer}
 .role-choice[aria-pressed=true]{border:2px solid var(--terra);background:#f8eee3}.role-choice span{font-size:.88rem;color:#6b5a4f}
 .match-grid{margin:.65rem 0 .9rem}.match-card{display:flex;flex-direction:column;gap:.3rem;padding:.8rem;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}.match-card h3,.match-card p{margin:0}.match-card h3{font-size:1rem}.match-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}.match-reasons{display:flex;flex-wrap:wrap;gap:.25rem}.match-reasons .chip{font-size:.74rem;padding:.03rem .45rem}.match-card .stats{margin-top:.1rem}.match-card .btn{margin-top:.2rem}
