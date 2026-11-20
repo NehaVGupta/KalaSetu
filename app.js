@@ -233,7 +233,7 @@ function nextStep(S, role) {
 /* ================= UI ================= */
 if (typeof document !== 'undefined') {
   let S, persist = true;
-  const ui = { reqProfile: 'p1', accessRole: 'organizer', accountMode: 'login', mediaNames: [], history: [], visitor: false, f: { region: '', form: '', fee: '', size: '', query: '' } };
+  const ui = { reqProfile: 'p1', accessRole: 'organizer', accountMode: 'login', mediaNames: [], history: [], visitor: false, eventDetail: null, bookingDraft: null, confirmationRequestId: null, f: { region: '', form: '', fee: '', size: '', query: '' } };
   const $ = (id) => document.getElementById(id);
 
   function load() {
@@ -357,8 +357,13 @@ if (typeof document !== 'undefined') {
         (p.media || []).length > 0 && h('p', { class: 'muted media-note' }, `${p.media.length} portfolio file name${p.media.length === 1 ? '' : 's'} on profile`),
         h('div', { class: 'stats' }, h('span', {}, h('b', {}, inr(p.feePaise)), 'listed fee'), h('span', {}, h('b', {}, inr(p.travelPaise)), 'travel'), h('span', {}, h('b', {}, p.groupSize), 'artists')),
         h('button', { class: 'btn', type: 'button', onclick: () => {
-          if (ui.visitor) { ui.accessRole = 'organizer'; go('access'); return; }
-          ui.reqProfile = p.id; go('request');
+          ui.reqProfile = p.id;
+          if (ui.visitor || S.role !== 'organizer') {
+            ui.accessRole = 'organizer';
+            go('access');
+            return;
+          }
+          go('request');
         } }, ui.visitor ? 'Continue to booking demo' : 'Request booking')));
   }
 
@@ -409,21 +414,25 @@ if (typeof document !== 'undefined') {
       offerCount.textContent = `${offers.length} artist offering${offers.length === 1 ? '' : 's'}`;
       eventList.replaceChildren(...(events.length ? events.map((r) => {
         const artwork = EVENT_ARTWORK[r.artwork] || EVENT_ARTWORK[eventArtworkFor(r)];
-        return h('article', { class: 'card tourist-event' }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
+        const open = () => { ui.eventDetail = { kind: 'event', id: r.id }; go('event-detail'); };
+        return h('article', { class: 'card tourist-event', role: 'link', tabindex: '0', 'aria-label': `View details for ${r.event}`, onclick: open,
+          onkeydown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } } }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
           h('div', { class: 'tourist-event-body' }, h('span', { class: 'tag' }, `Organizer event · ${r.eventType || 'Cultural event'}`),
             h('h3', {}, r.event), h('p', { class: 'muted' }, `${r.location} · ${fmtDate(r.date)} · Hosted by ${r.org}`),
             r.description && h('p', {}, r.description),
             h('p', { class: 'muted' }, `Artist group: ${profileOf(S, r).name}`),
-            h('button', { class: 'btn ghost', type: 'button', onclick: () => { ui.visitor = false; ui.accessRole = 'organizer'; go('access'); } }, 'Open booking demo')));
+            h('span', { class: 'tourist-event-link', 'aria-hidden': 'true' }, 'View full event details →')));
       }) : [h('div', { class: 'empty' }, h('h3', {}, 'No organizer events listed yet'), h('p', {}, 'Organizer events will appear here after a demo booking request is sent.'))]));
       offerList.replaceChildren(...(offers.length ? offers.map(({ profile, type }) => {
         const artwork = EVENT_ARTWORK[eventArtworkFor({ eventType: type, event: profile.form, description: profile.summary })];
-        return h('article', { class: 'card tourist-event' }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
+        const open = () => { ui.eventDetail = { kind: 'offering', profileId: profile.id, type }; go('event-detail'); };
+        return h('article', { class: 'card tourist-event', role: 'link', tabindex: '0', 'aria-label': `View ${type} offering from ${profile.name}`, onclick: open,
+          onkeydown: (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } } }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
           h('div', { class: 'tourist-event-body' }, h('span', { class: 'tag' }, `Artist offering · ${type}`),
             h('h3', {}, profile.name), h('p', { class: 'muted' }, `${profile.place}, ${profile.region} · ${profile.groupSize} artists`),
             h('p', {}, profile.summary),
             h('p', { class: 'muted' }, `Listed from ${inr(profile.feePaise + profile.travelPaise)} including travel`),
-            h('button', { class: 'btn ghost', type: 'button', onclick: () => { ui.visitor = true; ui.f.query = profile.form; go('discover'); } }, 'View artist profile')));
+            h('span', { class: 'tourist-event-link', 'aria-hidden': 'true' }, 'View full offering details →')));
       }) : [h('div', { class: 'empty' }, h('h3', {}, 'No artist offerings match'), h('p', {}, 'Try a different search term.'))]));
     };
     search.addEventListener('input', () => { ui.f.touristQuery = search.value; update(); });
@@ -435,6 +444,180 @@ if (typeof document !== 'undefined') {
       field('Search events, traditions, or locations', search),
       h('section', { class: 'tourist-section' }, h('div', { class: 'tourist-section-heading' }, h('h3', {}, 'Organizer events'), eventCount), eventList),
       h('section', { class: 'tourist-section' }, h('div', { class: 'tourist-section-heading' }, h('h3', {}, 'Artist event offerings'), offerCount), offerList));
+  }
+
+  function eventDetail() {
+    const detail = ui.eventDetail;
+    const back = h('button', { class: 'btn ghost', type: 'button', onclick: () => goBack() }, 'Back to Events & offerings');
+    if (!detail) return h('section', { class: 'event-detail' }, back, h('div', { class: 'empty' }, h('h2', {}, 'Event details unavailable'), h('p', {}, 'Return to Events & offerings and choose an event.')));
+
+    if (detail.kind === 'event') {
+      const r = S.requests.find((item) => item.id === detail.id);
+      if (!r) return h('section', { class: 'event-detail' }, back, h('div', { class: 'empty' }, h('h2', {}, 'Event details unavailable'), h('p', {}, 'This event may have been removed. Return to the listing to choose another event.')));
+      const p = profileOf(S, r), c = cur(r), artwork = EVENT_ARTWORK[r.artwork] || EVENT_ARTWORK[eventArtworkFor(r)];
+      if (!p) return h('section', { class: 'event-detail' }, back, h('div', { class: 'empty' }, h('h2', {}, 'Artist details unavailable'), h('p', {}, 'The artist profile for this event could not be found.')));
+      return h('section', { class: 'event-detail' }, back,
+        h('article', { class: 'event-detail-card' },
+          h('img', { class: 'event-detail-image', src: artwork.src, alt: artwork.alt }),
+          h('div', { class: 'event-detail-content' },
+            h('p', { class: 'eyebrow' }, `Organizer event · ${r.eventType || 'Cultural event'}`),
+            h('h2', {}, r.event), h('p', { class: 'muted' }, `Hosted by ${r.org}`),
+            r.description && h('p', { class: 'event-detail-description' }, r.description),
+            h('div', { class: 'event-detail-grid' },
+              detailItem('Date', fmtDate(r.date)), detailItem('Location', r.location),
+              detailItem('Performance duration', `${r.durationMin} minutes`), detailItem('Performers requested', r.groupSize),
+              detailItem('Event budget', inr(r.budgetPaise)), detailItem('Booking status', label(r))),
+            r.customRequest && h('div', { class: 'custom-note' }, h('b', {}, 'Performance request: '), r.customRequest),
+            h('section', { class: 'event-detail-subsection' }, h('h3', {}, 'Artist group'),
+              h('p', {}, h('b', {}, p.name), ` · ${p.form} · ${p.place}, ${p.region}`),
+              h('p', { class: 'muted' }, p.summary),
+              p.languages && p.languages.length ? h('p', {}, h('b', {}, 'Languages: '), p.languages.join(', ')) : null),
+            h('section', { class: 'event-detail-subsection' }, h('h3', {}, 'Current offer'),
+              h('p', {}, `${inr(c.perfPaise)} performance fee + ${inr(c.travelPaise)} travel = ${inr(c.perfPaise + c.travelPaise)}`),
+              c.note && h('p', { class: 'muted' }, c.note)),
+            h('button', { class: 'btn', type: 'button', onclick: () => startBooking(r.profileId, r.eventType || 'Cultural festival', r) }, 'Book artist demo'))));
+    }
+
+    if (detail.kind === 'offering') {
+      const p = S.profiles.find((profile) => profile.id === detail.profileId);
+      if (!p || !(p.eventTypes || []).includes(detail.type)) return h('section', { class: 'event-detail' }, back, h('div', { class: 'empty' }, h('h2', {}, 'Offering details unavailable'), h('p', {}, 'This artist offering may have changed. Return to the listing to choose another offering.')));
+      const artwork = EVENT_ARTWORK[eventArtworkFor({ eventType: detail.type, event: p.form, description: p.summary })];
+      return h('section', { class: 'event-detail' }, back,
+        h('article', { class: 'event-detail-card' },
+          h('img', { class: 'event-detail-image', src: artwork.src, alt: artwork.alt }),
+          h('div', { class: 'event-detail-content' },
+            h('p', { class: 'eyebrow' }, `Artist event offering · ${detail.type}`),
+            h('h2', {}, p.name), h('p', { class: 'muted' }, `${p.form} · ${p.place}, ${p.region}`),
+            h('p', { class: 'event-detail-description' }, p.summary),
+            h('div', { class: 'event-detail-grid' },
+              detailItem('Group size', `${p.groupSize} artists`),
+              detailItem('Languages', p.languages && p.languages.length ? p.languages.join(', ') : 'Not specified'),
+              detailItem('Performance fee', inr(p.feePaise)),
+              detailItem('Travel fee', inr(p.travelPaise)),
+              detailItem('Total including travel', inr(p.feePaise + p.travelPaise)),
+              detailItem('Available for', (p.eventTypes || []).join(', '))),
+            p.skills && p.skills.length ? h('section', { class: 'event-detail-subsection' }, h('h3', {}, 'Skills and specialties'),
+              h('div', { class: 'chips' }, p.skills.map((skill) => h('span', { class: 'chip' }, skill)))) : null,
+            h('div', { class: 'row' },
+              h('button', { class: 'btn', type: 'button', onclick: () => startBooking(p.id, detail.type) }, 'Book artist demo'),
+              h('button', { class: 'btn ghost', type: 'button', style: 'color:var(--espresso)', onclick: () => { ui.visitor = true; ui.f.query = p.form; go('discover'); } }, 'View artist profile')))));
+    }
+
+    return h('section', { class: 'event-detail' }, back, h('div', { class: 'empty' }, h('h2', {}, 'Event details unavailable'), h('p', {}, 'Return to Events & offerings and choose an event.')));
+  }
+
+  function detailItem(name, value) {
+    return h('div', { class: 'event-detail-item' }, h('span', { class: 'muted' }, name), h('b', {}, String(value)));
+  }
+
+  function startBooking(profileId, eventType, event = null) {
+    const profile = S.profiles.find((item) => item.id === profileId);
+    if (!profile) { toast('This artist profile is no longer available.', true); return; }
+    const today = dateStr(new Date());
+    ui.reqProfile = profileId;
+    ui.bookingDraft = {
+      profileId,
+      eventType,
+      event: event && event.event || `${eventType} performance`,
+      org: event && event.org || 'Demo Organizer',
+      location: event && event.location || [profile.place, profile.region].filter(Boolean).join(', '),
+      date: event && event.date >= today ? event.date : plusDays(30),
+      description: event && event.description || '',
+      customRequest: event && event.customRequest || '',
+    };
+    go('checkout');
+  }
+
+  function checkout() {
+    const draft = ui.bookingDraft, profile = draft && S.profiles.find((item) => item.id === draft.profileId);
+    if (!draft || !profile || !(profile.eventTypes || []).includes(draft.eventType)) {
+      return h('section', { class: 'event-detail' }, h('div', { class: 'empty' },
+        h('h2', {}, 'Booking details unavailable'), h('p', {}, 'Return to the artist listing and choose an available artist offering.'),
+        h('button', { class: 'btn', type: 'button', onclick: () => go('tourist') }, 'Back to Events & offerings')));
+    }
+
+    const eventName = h('input', { value: draft.event, maxlength: 80, required: true });
+    const organizer = h('input', { value: draft.org, maxlength: 80, required: true });
+    const location = h('input', { value: draft.location, maxlength: 80, required: true });
+    const date = h('input', { type: 'date', value: draft.date, min: dateStr(new Date()), required: true });
+    const description = h('textarea', { value: draft.description, maxlength: 500, placeholder: 'Add any details about the occasion.' });
+    const customRequest = h('textarea', { value: draft.customRequest, maxlength: 500, placeholder: 'Optional performance or staging requests.' });
+    const error = h('p', { class: 'err', role: 'alert' });
+    const totalPaise = profile.feePaise + profile.travelPaise;
+    const pay = h('button', { class: 'btn', type: 'button', onclick: () => {
+      error.textContent = '';
+      const request = createRequest(S, {
+        profileId: profile.id, org: organizer.value, event: eventName.value, eventType: draft.eventType,
+        location: location.value, date: date.value, description: description.value, customRequest: customRequest.value,
+        budget: String(totalPaise / 100), durationMin: 45, groupSize: profile.groupSize,
+        perf: String(profile.feePaise / 100), travel: String(profile.travelPaise / 100),
+      });
+      if (!request.ok) { error.textContent = request.error; return; }
+
+      const approved = approve(S, request.request, 'artist');
+      if (!approved.ok) { error.textContent = approved.error; return; }
+      const payment = recordPayment(S, request.request, 'organizer', {
+        amount: String(totalPaise / 100), note: 'Demo booking payment', key: uid('pay'),
+      });
+      if (!payment.ok) { error.textContent = payment.error; return; }
+
+      S.sel = request.request.id;
+      ui.confirmationRequestId = request.request.id;
+      ui.bookingDraft = null;
+      go('booking-confirmation');
+    } }, `Pay ${inr(totalPaise)} and confirm booking`);
+
+    return h('section', { class: 'checkout-page' },
+      h('p', { class: 'eyebrow' }, 'Demo checkout · No real payment is collected'),
+      h('h2', {}, 'Complete your booking'),
+      h('p', { class: 'muted' }, 'Confirm the occasion details, then make the simulated payment to confirm this booking.'),
+      h('div', { class: 'checkout-layout' },
+        h('div', { class: 'card' }, h('h3', {}, 'Occasion details'),
+          h('div', { class: 'form' },
+            field('Organizer name', organizer), field('Occasion', eventName),
+            field('Event type', h('input', { value: draft.eventType, disabled: true })),
+            field('Location', location), field('Date', date),
+            field('Event description', description, null, true),
+            field('Performance requests (optional)', customRequest, null, true))),
+        h('aside', { class: 'card checkout-summary' }, h('h3', {}, 'Booking summary'),
+          h('p', {}, h('b', {}, profile.name)),
+          h('p', { class: 'muted' }, `${profile.form} · ${profile.place}, ${profile.region}`),
+          h('div', { class: 'checkout-price-row' }, h('span', {}, 'Performance fee'), h('b', {}, inr(profile.feePaise))),
+          h('div', { class: 'checkout-price-row' }, h('span', {}, 'Travel'), h('b', {}, inr(profile.travelPaise))),
+          h('div', { class: 'checkout-price-row checkout-total' }, h('span', {}, 'Total due now'), h('b', {}, inr(totalPaise))),
+          h('p', { class: 'muted checkout-note' }, 'This demo confirms instantly after simulated payment at the listed fee. It does not collect card details, charge real money, or contact the artist.'),
+          error, pay,
+          h('button', { class: 'btn ghost checkout-back', type: 'button', onclick: () => goBack() }, 'Back to event details'))));
+  }
+
+  function bookingConfirmation() {
+    const id = ui.confirmationRequestId || S.sel;
+    const request = S.requests.find((item) => item.id === id);
+    if (!request || statusOf(request) !== 'confirmed' || outstandingOf(S, request) > 0) {
+      return h('section', { class: 'event-detail' }, h('div', { class: 'empty' },
+        h('h2', {}, 'Booking confirmation unavailable'),
+        h('p', {}, 'The booking has not been fully confirmed and paid. Return to the artist listing to try again.'),
+        h('button', { class: 'btn', type: 'button', onclick: () => go('tourist') }, 'Back to Events & offerings')));
+    }
+    const profile = profileOf(S, request);
+    const totalPaid = S.payments.filter((payment) => payment.requestId === request.id).reduce((sum, payment) => sum + payment.amountPaise, 0);
+    return h('section', { class: 'confirmation-page' },
+      h('div', { class: 'confirmation-mark', 'aria-hidden': 'true' }, '✓'),
+      h('p', { class: 'eyebrow' }, 'Payment successful · Demo only'),
+      h('h2', {}, 'Booking confirmed!'),
+      h('p', { class: 'confirmation-message' }, `Your ${request.eventType.toLowerCase()} booking for “${request.event}” with ${profile.name} is confirmed. We look forward to seeing this performance come to life!`),
+      h('div', { class: 'card confirmation-details' },
+        h('div', { class: 'event-detail-grid' },
+          detailItem('Booking reference', request.id.slice(-8).toUpperCase()),
+          detailItem('Artist', profile.name),
+          detailItem('Occasion', request.event),
+          detailItem('Date', fmtDate(request.date)),
+          detailItem('Location', request.location),
+          detailItem('Amount paid', inr(totalPaid))),
+        h('p', { class: 'muted' }, 'This confirmation is for the KalaSetu demo. No real payment was processed and the artist was not contacted.')),
+      h('div', { class: 'row confirmation-actions' },
+        h('button', { class: 'btn', type: 'button', onclick: () => go('tourist') }, 'Browse more artists'),
+        h('button', { class: 'btn ghost', type: 'button', style: 'color:var(--espresso)', onclick: () => go('booking') }, 'View booking details')));
   }
 
   function wishlist() {
@@ -648,14 +831,14 @@ if (typeof document !== 'undefined') {
   }
 
   /* ---- shell ---- */
-  const VIEWS = { home: ['Home', home], access: ['Login / Sign up', access], discover: ['Artist directory', discover], tourist: ['Events & offerings', tourist], wishlist: ['Wishlist', wishlist], studio: ['Artist registration', studio], request: ['Event & matches', request], inbox: ['Requests', inbox], booking: ['Bookings', booking] };
+  const VIEWS = { home: ['Home', home], access: ['Login / Sign up', access], discover: ['Artist directory', discover], tourist: ['Events & offerings', tourist], 'event-detail': ['Event details', eventDetail], checkout: ['Checkout', checkout], 'booking-confirmation': ['Booking confirmed', bookingConfirmation], wishlist: ['Wishlist', wishlist], studio: ['Artist registration', studio], request: ['Event & matches', request], inbox: ['Requests', inbox], booking: ['Bookings', booking] };
   function render() {
-    const visitorMode = ui.visitor && ['tourist', 'discover', 'wishlist'].includes(S.view);
+    const visitorMode = ui.visitor && ['tourist', 'event-detail', 'checkout', 'booking-confirmation', 'discover', 'wishlist'].includes(S.view);
     $('nav').hidden = !S.authenticated || visitorMode;
     $('banner').hidden = !S.authenticated || visitorMode;
     $('reset').hidden = !S.authenticated || visitorMode;
     $('back').hidden = ui.history.length === 0;
-    $('nav').replaceChildren(...Object.entries(VIEWS).filter(([k]) => k !== 'access').map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
+    $('nav').replaceChildren(...Object.entries(VIEWS).filter(([k]) => !['access', 'event-detail', 'checkout', 'booking-confirmation'].includes(k)).map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
     $('banner').replaceChildren(h('b', {}, 'Next step'), h('span', {}, nextStep(S, S.role), persist ? '' : ' (Browser storage is unavailable, so changes will not survive a refresh.)'));
     $('app').replaceChildren(VIEWS[S.view][1]());
   }
