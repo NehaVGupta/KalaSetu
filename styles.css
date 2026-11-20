@@ -14,10 +14,6 @@ nav button{background:none;border:0;color:var(--ivory);padding:.45rem .65rem;bor
 nav button[aria-current=page]{background:var(--terra);font-weight:600}
 nav button:hover{background:rgba(245,235,221,.14)}nav button[aria-current=page]:hover{background:var(--terra)}
 .tools{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
-.role{display:flex;flex-direction:column;gap:.2rem;font-size:.8rem}.role-label small{color:#cdbfae}
-.role #roles{display:inline-flex;border:1px solid var(--gold);border-radius:999px;overflow:hidden;width:max-content}
-.role #roles button{border:0;background:none;color:var(--ivory);padding:.3rem .75rem;min-height:34px;cursor:pointer;font:inherit;transition:background-color .16s ease,color .16s ease}
-.role #roles button[aria-pressed=true]{background:var(--gold);color:var(--espresso);font-weight:700}
 main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 2rem}
 .banner{background:var(--forest);color:var(--ivory);border-radius:8px;padding:.75rem 1rem;margin-bottom:1.1rem;display:flex;gap:.6rem;align-items:flex-start}
 .banner b{color:#E8D3A5;white-space:nowrap}
@@ -127,9 +123,6 @@ footer{text-align:center;font-size:.82rem;color:#6b5a4f;padding:1.2rem 1rem 2rem
 	nav{gap:.1rem .2rem;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
 	nav button{flex:0 0 auto;min-height:36px;padding:.3rem .48rem;font-size:.82rem;white-space:nowrap}
 	.tools{width:100%;justify-content:space-between;gap:.45rem}
-	.role{flex-direction:row;align-items:center;gap:.45rem;font-size:.72rem}
-	.role-label{white-space:nowrap}.role-label small{display:none}
-	.role #roles button{min-height:32px;padding:.22rem .5rem;font-size:.76rem}
 	.top .btn.ghost{min-height:34px;padding:.3rem .55rem;font-size:.78rem}
 	main{padding:.9rem .8rem 1.5rem}
 	.banner{gap:.45rem;padding:.65rem .75rem;margin-bottom:.9rem;font-size:.92rem}

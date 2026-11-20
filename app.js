@@ -643,7 +643,7 @@ if (typeof document !== 'undefined') {
             h('table', {}, h('tfoot', {}, h('tr', {}, h('td', {}, 'Total due'), h('td', { class: 'n' }, inr(totalOf(r)))), h('tr', {}, h('td', {}, 'Recorded'), h('td', { class: 'n' }, inr(paid))), h('tr', {}, h('td', {}, 'Outstanding'), h('td', { class: 'n' }, inr(out))))),
             confirmed && S.role === 'organizer' && out > 0 ? h('div', {}, h('div', { class: 'form', style: 'margin-top:.6rem' }, field('Amount (₹)', amt), field('Note', note)), pe, h('div', { class: 'row', style: 'margin-top:.5rem' }, pay),
               h('p', { class: 'muted' }, 'Simulation only — no real checkout, escrow or payment guarantee.'))
-              : h('p', { class: 'muted' }, !confirmed ? 'Payments open once both roles approve the current version.' : out <= 0 ? 'Fully paid (simulated).' : 'Switch demo role to Organizer to simulate a payment.')),
+              : h('p', { class: 'muted' }, !confirmed ? 'Payments open once both roles approve the current version.' : out <= 0 ? 'Fully paid (simulated).' : 'Use the Organizer demo to simulate a payment.')),
           h('div', { class: 'card' }, h('h3', {}, 'Activity log'), h('ul', { class: 'log' }, [...logs].reverse().map((l) => h('li', {}, h('b', {}, roleName(l.role)), ` — ${l.text}`, h('div', { class: 'muted' }, fmt(l.at)))))))));
   }
 
@@ -652,12 +652,10 @@ if (typeof document !== 'undefined') {
   function render() {
     const visitorMode = ui.visitor && ['tourist', 'discover', 'wishlist'].includes(S.view);
     $('nav').hidden = !S.authenticated || visitorMode;
-    $('roles').parentElement.hidden = !S.authenticated || visitorMode || S.view !== 'home';
     $('banner').hidden = !S.authenticated || visitorMode;
     $('reset').hidden = !S.authenticated || visitorMode;
     $('back').hidden = ui.history.length === 0;
     $('nav').replaceChildren(...Object.entries(VIEWS).filter(([k]) => k !== 'access').map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
-    $('roles').replaceChildren(...ROLES.map((r) => h('button', { type: 'button', 'aria-pressed': String(S.role === r), onclick: () => { S.role = r; save(); render(); } }, roleName(r))));
     $('banner').replaceChildren(h('b', {}, 'Next step'), h('span', {}, nextStep(S, S.role), persist ? '' : ' (Browser storage is unavailable, so changes will not survive a refresh.)'));
     $('app').replaceChildren(VIEWS[S.view][1]());
   }
