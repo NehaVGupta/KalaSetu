@@ -2,6 +2,12 @@
 # KalaSetu – Your Art. Your Terms.
 
 **Empowering Local Artists Through Smart Bookings**
+**Demo flow**
+1. Start on the separate KalaSetu welcome page. Choose *Explore the universe of art* to open Login / Sign up. From the booking demo Home, choose *Find artists* for the Organizer flow, *Join as an artist* to open sign-up with Artist selected, or *Tourist* to browse organizer events and artist event offerings. Select or keyboard-focus an event/offering card and press Enter or Space to open its full details. Choose *Book artist demo* to review occasion details, simulate payment at the artist's listed fee, and see a booking confirmation. Tourist browsing does not switch demo roles.
+2. As an Artist, complete *Artist registration*: generate and review a profile draft, add skills and portfolio filenames, then approve and publish.
+3. Browse and search groups by name, art form, place, or skill; save groups to *Wishlist* for later. As an Organizer, enter event type, location, date, and total budget in *Event & matches*. Describe the event to see a relevant image preview, then add optional performance notes, select an eligible group, and send a request. Suggestions rank fictional groups using budget, event specialty, location, and group capacity.
+4. As an Artist, review the request in *Requests*: the prefilled offer is below the listed fee, so acceptance requires an explicit exception; the Artist can instead counteroffer or decline. The Organizer must approve any counteroffer before the booking is confirmed.
+5. In *Bookings*, review agreed terms and history. The Organizer can record simulated payments; the booking is marked completed when the balance reaches zero.
 
 KalaSetu is an AI-assisted platform that connects folk artists, craft demonstrators, local guides, and heritage hosts with event organizers and tourists.
 
