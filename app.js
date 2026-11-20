@@ -5,6 +5,17 @@
 const KEY = 'kalasetu.demo.v1';
 const ROLES = ['organizer', 'artist'];
 const EVENT_TYPES = ['Cultural festival', 'College fest', 'Wedding', 'Temple event', 'Community event'];
+const EVENT_ARTWORK = {
+  festival: { src: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80', alt: 'Audience gathered at a live cultural event', label: 'Live cultural event' },
+  performance: { src: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80', alt: 'Performers on stage at a live event', label: 'Live performance' },
+  wedding: { src: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80', alt: 'Wedding celebration with guests gathered outdoors', label: 'Wedding celebration' },
+};
+function eventArtworkFor(details) {
+  const text = `${details.eventType || ''} ${details.event || ''} ${details.description || ''}`.toLowerCase();
+  if (/wedding|marriage|engagement|reception/.test(text)) return 'wedding';
+  if (/dance|folk|temple|ritual|ceremony|bihu|karagattam|kalbelia|kajri/.test(text)) return 'performance';
+  return 'festival';
+}
 const uid = (p) => p + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const nowIso = () => new Date().toISOString();
 const pad = (n) => String(n).padStart(2, '0');
@@ -37,7 +48,7 @@ function seed() {
       P('p4', 'Thar Kalbelia Sangh', 'Kalbelia', 'Jaisalmer', 'Rajasthan', ['Hindi', 'Rajasthani'], 7, 18000, 2500,
         'Kalbelia dance and desert folk music with khartal and morchang.', 3, ['Kalbelia dance', 'Khartal', 'Morchang'], ['Wedding', 'Cultural festival', 'Community event']),
     ],
-    studio: { intro: '', draft: null }, requests: [], payments: [], log: [],
+    studio: { intro: '', draft: null }, requests: [], payments: [], log: [], wishlist: [],
   };
 }
 
@@ -102,6 +113,10 @@ function createRequest(S, i) {
   const location = String(i.location || '').trim(), budget = toPaise(i.budget);
   if (!location || location.length > 80) return fail('Enter an event location (80 characters or fewer).');
   if (budget === null || budget <= 0) return fail('Enter a total event budget in rupees.');
+  const description = String(i.description || '').trim();
+  if (description.length > 500) return fail('Event description must be 500 characters or fewer.');
+  const customRequest = String(i.customRequest || '').trim();
+  if (customRequest.length > 500) return fail('Performance notes must be 500 characters or fewer.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(i.date || '') || i.date < dateStr(new Date())) return fail('Choose an event date that is today or later.');
   const dur = Number(i.durationMin), gs = Number(i.groupSize);
   if (!Number.isInteger(dur) || dur < 15 || dur > 240) return fail('Duration must be 15–240 minutes.');
@@ -110,7 +125,8 @@ function createRequest(S, i) {
   if (perf === null || perf <= 0) return fail('Enter a performance fee in rupees (e.g. 8000).');
   if (travel === null) return fail('Enter travel in rupees (0 if none).');
   if (perf + travel > budget) return fail(`The selected artist's total ${inr(perf + travel)} exceeds the event budget ${inr(budget)}.`);
-  const r = { id: uid('r'), profileId: p.id, org, event, eventType: i.eventType, location, budgetPaise: budget, date: i.date, durationMin: dur, groupSize: gs,
+  const r = { id: uid('r'), profileId: p.id, org, event, eventType: i.eventType, location, description,
+    artwork: eventArtworkFor({ eventType: i.eventType, event, description }), budgetPaise: budget, date: i.date, durationMin: dur, groupSize: gs, customRequest,
     versions: [{ n: 1, by: 'organizer', perfPaise: perf, travelPaise: travel, note: 'Initial request', at: nowIso() }],
     approvals: { organizer: { version: 1 }, artist: null }, declined: null, createdAt: nowIso() };
   S.requests.push(r);
@@ -207,8 +223,8 @@ function nextStep(S, role) {
     : 'Complete your group profile in “Artist registration” so organizers can find you in ranked matches.';
   const st = statusOf(r);
   if (st === 'declined') return 'This request was declined. Start a new one from “Event & matches”.';
-  if (st === 'awaiting_artist') return role === 'artist' ? 'Review the request in “Requests”: accept the exception explicitly, counter, or decline.' : 'Waiting for artist review — nothing is confirmed. Switch demo role to Artist and open “Requests”.';
-  if (st === 'awaiting_organizer') return role === 'organizer' ? 'The artist sent new terms. Approve the current version (or counter) in “Requests”.' : 'Waiting for the organizer to approve the current version. Switch demo role to Organizer.';
+  if (st === 'awaiting_artist') return role === 'artist' ? 'Review the request in “Requests”: accept the exception explicitly, counter, or decline.' : 'Waiting for artist review — nothing is confirmed. Return to Home, choose Artist, then open “Requests”.';
+  if (st === 'awaiting_organizer') return role === 'organizer' ? 'The artist sent new terms. Approve the current version (or counter) in “Requests”.' : 'Waiting for the organizer to approve. Return to Home and choose Organizer.';
   const o = outstandingOf(S, r);
   if (o > 0) return role === 'organizer' ? `Booking confirmed. Next: simulate a payment in “Bookings” — ${inr(o)} outstanding.` : `Booking confirmed. ${inr(o)} outstanding; switch to Organizer to simulate payments.`;
   return 'Fully paid (simulated). Nothing outstanding.';
@@ -217,7 +233,7 @@ function nextStep(S, role) {
 /* ================= UI ================= */
 if (typeof document !== 'undefined') {
   let S, persist = true;
-  const ui = { reqProfile: 'p1', accessRole: 'organizer', accountMode: 'login', mediaNames: [], f: { region: '', form: '', fee: '', size: '' } };
+  const ui = { reqProfile: 'p1', accessRole: 'organizer', accountMode: 'login', mediaNames: [], history: [], visitor: false, f: { region: '', form: '', fee: '', size: '', query: '' } };
   const $ = (id) => document.getElementById(id);
 
   function load() {
@@ -225,6 +241,8 @@ if (typeof document !== 'undefined') {
       const s = JSON.parse(localStorage.getItem(KEY));
       if (s && s.v === 1 && Array.isArray(s.profiles) && Array.isArray(s.requests)) {
         if (typeof s.authenticated !== 'boolean') { s.authenticated = false; s.view = 'home'; }
+        delete s.demoActive;
+        if (!Array.isArray(s.wishlist)) s.wishlist = [];
         return s;
       }
     } catch (e) { /* fall through */ }
@@ -266,18 +284,30 @@ if (typeof document !== 'undefined') {
     const t = $('toast'); t.textContent = msg; t.className = 'show' + (bad ? ' bad' : '');
     clearTimeout(tt); tt = setTimeout(() => { t.className = ''; }, 3800);
   }
-  const go = (view) => { S.view = view; save(); render(); window.scrollTo(0, 0); };
+  const go = (view) => {
+    if (S.view !== view) {
+      ui.history.push(S.view);
+      if (ui.history.length > 24) ui.history.shift();
+    }
+    S.view = view; save(); render(); window.scrollTo(0, 0);
+  };
+  function goBack() {
+    const previous = ui.history.pop();
+    if (!previous) return;
+    S.view = previous; save(); render(); window.scrollTo(0, 0);
+  }
   function done(res, okMsg) { if (!res.ok) { toast(res.error, true); return false; } save(); toast(okMsg); render(); return true; }
 
   function money(val, id) { return h('input', { type: 'text', inputmode: 'decimal', value: val == null ? '' : String(val / 100), 'aria-label': id, autocomplete: 'off' }); }
   function field(text, el, hint, wide) { return h('label', { class: wide ? 'wide' : '' }, text, el, hint && h('small', {}, hint)); }
   function gate(role, title) {
     return h('div', { class: 'empty' }, h('h2', {}, title), h('p', {}, `This screen is used by the ${roleName(role)} role. Demo switching only — it is not authentication.`),
-      h('button', { class: 'btn', type: 'button', onclick: () => { S.role = role; save(); render(); } }, `Switch demo role to ${roleName(role)}`));
+      h('button', { class: 'btn', type: 'button', onclick: () => go('home') }, 'Go to Home to switch demo role'));
   }
 
   function home() {
     const joinAsArtist = () => { ui.accessRole = 'artist'; ui.accountMode = 'signup'; go('access'); };
+    const browseAsTourist = () => { ui.visitor = true; go('tourist'); };
     return h('section', { class: 'home' },
       h('section', { class: 'home-hero' },
         h('div', { class: 'home-copy' }, h('p', { class: 'eyebrow' }, 'A stage for living traditions'),
@@ -285,7 +315,8 @@ if (typeof document !== 'undefined') {
           h('p', { class: 'home-intro' }, 'Discover folk performers, share a profile rooted in your practice, and agree on booking terms directly.'),
           h('div', { class: 'row home-actions' },
             h('button', { class: 'btn', type: 'button', onclick: () => go('access') }, 'Find artists'),
-            h('button', { class: 'btn ghost', type: 'button', onclick: joinAsArtist }, 'Join as an artist')),
+            h('button', { class: 'btn ghost', type: 'button', onclick: joinAsArtist }, 'Join as an artist'),
+            h('button', { class: 'btn ghost', type: 'button', onclick: browseAsTourist }, 'Tourist')),
           h('p', { class: 'muted home-note' }, 'Four fictional artist groups · Booking and payments are simulated.')),
         h('div', { class: 'home-artwork' }, S.profiles.slice(0, 3).map((p, index) => h('figure', { class: 'home-art ' + (index === 0 ? 'home-art-main' : '') },
           art(p.pal), h('figcaption', {}, h('span', {}, `${p.form} · ${p.region}`), h('b', {}, p.name)))))),
@@ -305,10 +336,30 @@ if (typeof document !== 'undefined') {
       h('div', { class: 'row mode-switch', role: 'group', 'aria-label': 'Account action' }, mode('login'), mode('signup')),
       h('div', { class: 'role-choices', role: 'group', 'aria-label': 'Choose your role' }, role('artist'), role('organizer')),
       h('button', { class: 'btn', type: 'button', onclick: () => {
-        S.role = ui.accessRole; S.authenticated = true; S.view = S.role === 'artist' ? 'studio' : 'request'; save(); render(); window.scrollTo(0, 0);
+        ui.visitor = false; S.role = ui.accessRole; S.authenticated = true; go(S.role === 'artist' ? 'studio' : 'request');
       } }, `${ui.accountMode === 'login' ? 'Log in' : 'Sign up'} as ${roleName(ui.accessRole)}`),
-      h('p', { class: 'muted' }, 'Demo access only · No password, real account, or authentication service.'),
-      h('button', { class: 'btn ghost home-back', type: 'button', onclick: () => go('home') }, 'Back to home'));
+      h('p', { class: 'muted' }, 'Demo access only · No password, real account, or authentication service.'));
+  }
+
+  function toggleWishlist(profileId) {
+    const saved = S.wishlist.includes(profileId);
+    S.wishlist = saved ? S.wishlist.filter((id) => id !== profileId) : [...S.wishlist, profileId];
+    save(); toast(saved ? 'Removed from wishlist.' : 'Added to wishlist.'); render();
+  }
+  function artistCard(p) {
+    const saved = S.wishlist.includes(p.id);
+    return h('article', { class: 'card art' }, art(p.pal),
+      h('div', { class: 'body' }, h('div', { class: 'artist-card-heading' }, h('span', { class: 'tag' }, 'Fictional demo profile'),
+        h('button', { class: 'wishlist-toggle', type: 'button', 'aria-label': saved ? `Remove ${p.name} from wishlist` : `Add ${p.name} to wishlist`,
+          'aria-pressed': String(saved), title: saved ? 'Remove from wishlist' : 'Add to wishlist', onclick: () => toggleWishlist(p.id) }, saved ? '♥' : '♡')),
+        h('h3', {}, p.name), h('div', { class: 'muted' }, `${p.form} · ${p.place}, ${p.region}`), h('p', { style: 'margin:0' }, p.summary),
+        h('div', { class: 'chips' }, [...p.languages, ...(p.skills || [])].map((l) => h('span', { class: 'chip' }, l))),
+        (p.media || []).length > 0 && h('p', { class: 'muted media-note' }, `${p.media.length} portfolio file name${p.media.length === 1 ? '' : 's'} on profile`),
+        h('div', { class: 'stats' }, h('span', {}, h('b', {}, inr(p.feePaise)), 'listed fee'), h('span', {}, h('b', {}, inr(p.travelPaise)), 'travel'), h('span', {}, h('b', {}, p.groupSize), 'artists')),
+        h('button', { class: 'btn', type: 'button', onclick: () => {
+          if (ui.visitor) { ui.accessRole = 'organizer'; go('access'); return; }
+          ui.reqProfile = p.id; go('request');
+        } }, ui.visitor ? 'Continue to booking demo' : 'Request booking')));
   }
 
   /* ---- 1. Discover ---- */
@@ -316,23 +367,83 @@ if (typeof document !== 'undefined') {
     const f = ui.f, uniq = (k) => [...new Set(S.profiles.map((p) => p[k]))].sort();
     const sel = (key, name, opts) => field(name, h('select', { onchange: (e) => { f[key] = e.target.value; render(); } },
       h('option', { value: '' }, 'Any'), opts.map(([v, t]) => h('option', { value: v, selected: String(f[key]) === String(v) }, t))));
-    const list = S.profiles.filter((p) => (!f.region || p.region === f.region) && (!f.form || p.form === f.form) &&
-      (!f.fee || p.feePaise <= Number(f.fee) * 100) && (!f.size || p.groupSize >= Number(f.size)));
-    return h('section', {}, h('h2', {}, 'Discover folk groups'), h('p', { class: 'muted' }, 'Four fictional groups for this demo. Fees shown are the artist-listed fees.'),
-      h('div', { class: 'filters' },
+    const search = h('input', { type: 'search', value: f.query, placeholder: 'Name, art form, place or skill', 'aria-label': 'Search artists' });
+    const count = h('span', {}), results = h('div', { class: 'grid' });
+    const filtered = () => {
+      const query = f.query.trim().toLowerCase();
+      return S.profiles.filter((p) => (!f.region || p.region === f.region) && (!f.form || p.form === f.form) &&
+        (!f.fee || p.feePaise <= Number(f.fee) * 100) && (!f.size || p.groupSize >= Number(f.size)) &&
+        (!query || [p.name, p.form, p.place, p.region, p.summary, ...(p.languages || []), ...(p.skills || [])].join(' ').toLowerCase().includes(query)));
+    };
+    const updateResults = () => {
+      const list = filtered();
+      count.textContent = `${list.length} of ${S.profiles.length} groups shown`;
+      results.replaceChildren(...(list.length ? list.map(artistCard) : [h('div', { class: 'empty' }, h('h3', {}, 'No groups match these filters'), h('p', {}, 'Try a different search or widen your filters.'))]));
+    };
+    search.addEventListener('input', () => { f.query = search.value; updateResults(); });
+    const clear = () => { ui.f = { region: '', form: '', fee: '', size: '', query: '' }; render(); };
+    updateResults();
+    return h('section', {}, h('div', { class: 'directory-heading' }, h('div', {}, h('h2', {}, ui.visitor ? 'Explore folk art' : 'Discover folk groups'), h('p', { class: 'muted' }, ui.visitor ? 'Browse fictional artist profiles, search by tradition, and save groups to your wishlist.' : 'Explore fictional artist profiles, compare listed fees, and save groups for later.')),
+        h('a', { class: 'directory-wishlist', href: '#wishlist', onclick: (event) => { event.preventDefault(); go('wishlist'); } }, `Wishlist (${S.wishlist.length})`)),
+      h('div', { class: 'filters' }, field('Search artists', search),
         sel('region', 'Region', uniq('region').map((x) => [x, x])), sel('form', 'Art form', uniq('form').map((x) => [x, x])),
-        sel('fee', 'Max performance fee', [[10000, 'Up to ₹10,000'], [15000, 'Up to ₹15,000'], [20000, 'Up to ₹20,000']].map((x) => x)),
+        sel('fee', 'Max performance fee', [[10000, 'Up to ₹10,000'], [15000, 'Up to ₹15,000'], [20000, 'Up to ₹20,000']]),
         sel('size', 'Group size at least', [[6, '6+'], [8, '8+'], [10, '10+']]),
-        h('button', { class: 'btn ghost', type: 'button', onclick: () => { ui.f = { region: '', form: '', fee: '', size: '' }; render(); } }, 'Clear filters')),
-      h('p', { class: 'muted' }, `${list.length} of ${S.profiles.length} groups shown`),
-      list.length ? h('div', { class: 'grid' }, list.map((p) => h('article', { class: 'card art' }, art(p.pal),
-        h('div', { class: 'body' }, h('span', { class: 'tag' }, 'Fictional demo profile'), h('h3', {}, p.name),
-          h('div', { class: 'muted' }, `${p.form} · ${p.place}, ${p.region}`), h('p', { style: 'margin:0' }, p.summary),
-          h('div', { class: 'chips' }, [...p.languages, ...(p.skills || [])].map((l) => h('span', { class: 'chip' }, l))),
-          (p.media || []).length > 0 && h('p', { class: 'muted media-note' }, `${p.media.length} portfolio file name${p.media.length === 1 ? '' : 's'} on profile`),
-          h('div', { class: 'stats' }, h('span', {}, h('b', {}, inr(p.feePaise)), 'listed fee'), h('span', {}, h('b', {}, inr(p.travelPaise)), 'travel'), h('span', {}, h('b', {}, p.groupSize), 'artists')),
-          h('button', { class: 'btn', type: 'button', onclick: () => { ui.reqProfile = p.id; go('request'); } }, 'Request booking')))))
-        : h('div', { class: 'empty' }, h('h3', {}, 'No groups match these filters'), h('p', {}, 'Try widening the fee or group size.')));
+        h('button', { class: 'btn ghost', type: 'button', onclick: clear }, 'Clear filters')),
+      h('p', { class: 'muted result-count' }, count), results);
+  }
+
+  function tourist() {
+    const q = ui.f.touristQuery || '';
+    const search = h('input', { type: 'search', value: q, placeholder: 'Search events, traditions, or locations', 'aria-label': 'Search public events and artists' });
+    const query = () => search.value.trim().toLowerCase();
+    const eventRows = () => [...S.requests].reverse().filter((r) =>
+      [r.event, r.eventType, r.location, r.org, r.description, profileOf(S, r).name].filter(Boolean).join(' ').toLowerCase().includes(query()));
+    const offerRows = () => S.profiles.flatMap((p) => (p.eventTypes || []).map((type) => ({ profile: p, type })))
+      .filter(({ profile, type }) => [profile.name, profile.form, profile.place, profile.region, profile.summary, type].join(' ').toLowerCase().includes(query()));
+    const eventList = h('div', { class: 'grid tourist-grid' }), offerList = h('div', { class: 'grid tourist-grid' });
+    const eventCount = h('p', { class: 'muted result-count' }), offerCount = h('p', { class: 'muted result-count' });
+    const update = () => {
+      const events = eventRows(), offers = offerRows();
+      eventCount.textContent = `${events.length} organizer event${events.length === 1 ? '' : 's'}`;
+      offerCount.textContent = `${offers.length} artist offering${offers.length === 1 ? '' : 's'}`;
+      eventList.replaceChildren(...(events.length ? events.map((r) => {
+        const artwork = EVENT_ARTWORK[r.artwork] || EVENT_ARTWORK[eventArtworkFor(r)];
+        return h('article', { class: 'card tourist-event' }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
+          h('div', { class: 'tourist-event-body' }, h('span', { class: 'tag' }, `Organizer event · ${r.eventType || 'Cultural event'}`),
+            h('h3', {}, r.event), h('p', { class: 'muted' }, `${r.location} · ${fmtDate(r.date)} · Hosted by ${r.org}`),
+            r.description && h('p', {}, r.description),
+            h('p', { class: 'muted' }, `Artist group: ${profileOf(S, r).name}`),
+            h('button', { class: 'btn ghost', type: 'button', onclick: () => { ui.visitor = false; ui.accessRole = 'organizer'; go('access'); } }, 'Open booking demo')));
+      }) : [h('div', { class: 'empty' }, h('h3', {}, 'No organizer events listed yet'), h('p', {}, 'Organizer events will appear here after a demo booking request is sent.'))]));
+      offerList.replaceChildren(...(offers.length ? offers.map(({ profile, type }) => {
+        const artwork = EVENT_ARTWORK[eventArtworkFor({ eventType: type, event: profile.form, description: profile.summary })];
+        return h('article', { class: 'card tourist-event' }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
+          h('div', { class: 'tourist-event-body' }, h('span', { class: 'tag' }, `Artist offering · ${type}`),
+            h('h3', {}, profile.name), h('p', { class: 'muted' }, `${profile.place}, ${profile.region} · ${profile.groupSize} artists`),
+            h('p', {}, profile.summary),
+            h('p', { class: 'muted' }, `Listed from ${inr(profile.feePaise + profile.travelPaise)} including travel`),
+            h('button', { class: 'btn ghost', type: 'button', onclick: () => { ui.visitor = true; ui.f.query = profile.form; go('discover'); } }, 'View artist profile')));
+      }) : [h('div', { class: 'empty' }, h('h3', {}, 'No artist offerings match'), h('p', {}, 'Try a different search term.'))]));
+    };
+    search.addEventListener('input', () => { ui.f.touristQuery = search.value; update(); });
+    update();
+    return h('section', { class: 'tourist-page' },
+      h('div', { class: 'directory-heading' }, h('div', {}, h('p', { class: 'eyebrow' }, 'Visitor view'), h('h2', {}, 'Events & artist offerings'),
+        h('p', { class: 'muted' }, 'Explore public event details shared in the demo and occasions artists are available for.')),
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => go('home') }, 'Home')),
+      field('Search events, traditions, or locations', search),
+      h('section', { class: 'tourist-section' }, h('div', { class: 'tourist-section-heading' }, h('h3', {}, 'Organizer events'), eventCount), eventList),
+      h('section', { class: 'tourist-section' }, h('div', { class: 'tourist-section-heading' }, h('h3', {}, 'Artist event offerings'), offerCount), offerList));
+  }
+
+  function wishlist() {
+    const saved = S.profiles.filter((p) => S.wishlist.includes(p.id));
+    return h('section', {}, h('div', { class: 'directory-heading' }, h('div', {}, h('h2', {}, 'Your wishlist'), h('p', { class: 'muted' }, 'Saved artist groups stay in this browser demo.')),
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => go('discover') }, 'Browse artists')),
+      saved.length ? h('div', { class: 'grid' }, saved.map(artistCard))
+        : h('div', { class: 'empty' }, h('h3', {}, 'No saved groups yet'), h('p', {}, 'Save an artist group from the directory to keep it here.'),
+          h('button', { class: 'btn', type: 'button', onclick: () => go('discover') }, 'Explore artist groups')));
   }
 
   /* ---- 2. Profile studio ---- */
@@ -391,13 +502,27 @@ if (typeof document !== 'undefined') {
       eventType: h('select', {}, EVENT_TYPES.map((type) => h('option', { value: type, selected: type === 'College fest' }, type))),
       location: h('input', { value: 'Thanjavur, Tamil Nadu', maxlength: 80 }), date: h('input', { type: 'date', value: plusDays(30), min: dateStr(new Date()) }),
       budget: money(1500000, 'Total event budget'), dur: h('input', { type: 'number', min: 15, max: 240, value: 45 }),
-      gs: h('input', { type: 'number', min: 1, max: 50, value: 8 }), perf: money(800000, 'Offered fee'), travel: money(100000, 'Travel') };
+      description: h('textarea', { maxlength: 500, placeholder: 'Describe the occasion, atmosphere, or tradition you want to feature…' }),
+      gs: h('input', { type: 'number', min: 1, max: 50, value: 8 }), custom: h('textarea', { maxlength: 500, placeholder: 'Set length, repertoire, accessibility, or staging preferences…' }),
+      perf: money(800000, 'Offered fee'), travel: money(100000, 'Travel') };
     const err = h('p', { class: 'err', role: 'alert' }), prev = h('div', { 'aria-live': 'polite' });
     const matches = h('div', { class: 'grid match-grid', 'aria-live': 'polite' });
+    const eventPhoto = h('img', { loading: 'lazy' });
+    const eventPhotoLabel = h('span', {});
+    const eventPhotoCaption = h('figcaption', {}, eventPhotoLabel);
+    const eventPhotoFigure = h('figure', { class: 'event-photo' }, eventPhoto, eventPhotoCaption);
     const read = () => ({ profileId: ui.reqProfile, org: I.org.value, event: I.event.value, eventType: I.eventType.value, location: I.location.value,
-      budget: I.budget.value, date: I.date.value, durationMin: I.dur.value, groupSize: I.gs.value, perf: I.perf.value, travel: I.travel.value });
+      description: I.description.value, budget: I.budget.value, date: I.date.value, durationMin: I.dur.value, groupSize: I.gs.value,
+      customRequest: I.custom.value, perf: I.perf.value, travel: I.travel.value });
+    const updateEventPhoto = () => {
+      const artwork = EVENT_ARTWORK[eventArtworkFor(read())];
+      eventPhoto.src = artwork.src;
+      eventPhoto.alt = artwork.alt;
+      eventPhotoLabel.textContent = artwork.label;
+    };
     const preview = () => {
       const v = read(), budget = toPaise(v.budget), ranked = rankProfiles(S, v);
+      updateEventPhoto();
       prev.replaceChildren();
       matches.replaceChildren();
       if (budget === null || budget <= 0) { prev.append(h('div', { class: 'flag' }, 'Enter a total event budget to see eligible artists.')); return; }
@@ -427,14 +552,17 @@ if (typeof document !== 'undefined') {
     return h('section', {}, h('h2', {}, 'Organizer dashboard'), h('p', { class: 'muted' }, 'Describe your event, compare ranked artist matches, then send a booking request. Suggestions use transparent demo rules, not live AI.'),
       h('div', { class: 'card' }, h('h3', {}, 'Event details'), h('div', { class: 'form' },
         field('Organizer', I.org), field('Event name', I.event), field('Event type', I.eventType), field('Event location', I.location), field('Event date', I.date),
-        field('Total artist budget (₹)', I.budget), field('Performance duration (minutes)', I.dur), field('Performers requested', I.gs)),
+        field('Total artist budget (₹)', I.budget), field('Performance duration (minutes)', I.dur), field('Performers requested', I.gs),
+        field('Event description', I.description, 'This description selects a relevant preview image and is shared with the artist.', true)),
+        eventPhotoFigure,
         h('h3', { style: 'margin-top:1rem' }, 'Ranked artist matches'), matches,
+        h('div', { class: 'form request-notes' }, field('Custom performance request (optional)', I.custom, 'Share repertoire, staging, accessibility, or timing preferences with the artist.', true)),
         h('h3', { style: 'margin-top:1rem' }, 'Booking offer'), h('div', { class: 'form' }, field('Offered performance fee (₹)', I.perf), field('Travel offered (₹)', I.travel)),
         prev, err, h('div', { class: 'row', style: 'margin-top:.6rem' }, h('button', { class: 'btn', type: 'button', onclick: (ev) => {
           const res = createRequest(S, read());
           if (!res.ok) { err.textContent = res.error; return; }
-          ev.target.disabled = true; S.sel = res.request.id; S.view = 'inbox'; save();
-          toast(res.flags.length ? 'Request sent and flagged — waiting for artist review.' : 'Request sent.'); render(); window.scrollTo(0, 0);
+          ev.target.disabled = true; S.sel = res.request.id; go('inbox');
+          toast(res.flags.length ? 'Request sent and flagged — waiting for artist review.' : 'Request sent.');
         } }, 'Send booking request'))));
   }
 
@@ -442,9 +570,13 @@ if (typeof document !== 'undefined') {
   function termsLine(r, v) { return `${inr(v.perfPaise)} fee + ${inr(v.travelPaise)} travel = ${inr(v.perfPaise + v.travelPaise)}`; }
   function summary(r) {
     const p = profileOf(S, r), c = cur(r), fl = flagsFor(S, r, c);
+    const artwork = EVENT_ARTWORK[r.artwork] || EVENT_ARTWORK[eventArtworkFor(r)];
     return h('div', {}, h('div', { class: 'row' }, h('h3', { style: 'margin:0' }, `${r.event} — ${r.org}`), badge(r)),
+      h('figure', { class: 'event-photo event-photo-summary' }, h('img', { src: artwork.src, alt: artwork.alt, loading: 'lazy' }),
+        h('figcaption', {}, h('b', {}, artwork.label), r.description && h('span', {}, r.description))),
       h('p', { class: 'muted', style: 'margin:.2rem 0' }, [r.eventType || 'Event', r.location || p.region, r.budgetPaise != null && `budget ${inr(r.budgetPaise)}`,
         fmtDate(r.date), `${r.durationMin} min`, `${r.groupSize} performers`].filter(Boolean).join(' · ')),
+      r.customRequest && h('p', { class: 'custom-note' }, h('b', {}, 'Performance request: '), r.customRequest),
       h('p', { style: 'margin:.2rem 0' }, h('b', {}, `v${c.n} by ${roleName(c.by)}: `), termsLine(r, c)),
       fl.map((t) => h('div', { class: 'flag' }, '⚑ ', t)));
   }
@@ -470,17 +602,17 @@ if (typeof document !== 'undefined') {
   function inbox() {
     const list = [...S.requests].reverse();
     return h('section', {}, h('h2', {}, 'Artist inbox'),
-      h('p', { class: 'muted' }, S.role === 'artist' ? 'Review each request: accept, counter, or decline. Flagged terms are never accepted automatically.' : 'Viewing as Organizer: these are your sent requests. Switch demo role to Artist to respond as the artist.'),
+      h('p', { class: 'muted' }, S.role === 'artist' ? 'Review each request: accept, counter, or decline. Flagged terms are never accepted automatically.' : 'Viewing as Organizer: these are your sent requests. Go to Home, choose Artist, then return here to respond as the artist.'),
       list.length ? h('div', { class: 'list' }, list.map((r) => h('div', { class: 'card' }, summary(r), actions(r),
         h('div', { class: 'row', style: 'margin-top:.6rem' }, h('button', { class: 'btn ghost', type: 'button', style: 'color:var(--espresso)', onclick: () => { S.sel = r.id; go('booking'); } }, 'Open booking workspace')))))
         : h('div', { class: 'empty' }, h('h3', {}, 'No requests yet'), h('p', {}, 'Requests appear here after an organizer sends one.'),
-          h('button', { class: 'btn', type: 'button', onclick: () => { S.role = 'organizer'; go('request'); } }, 'Send the core-demo request')));
+          h('button', { class: 'btn', type: 'button', onclick: () => go('home') }, 'Go to Home to switch demo role')));
   }
 
   /* ---- 5. Booking workspace ---- */
   function booking() {
     if (!S.requests.length) return h('div', { class: 'empty' }, h('h2', {}, 'Booking workspace'), h('p', {}, 'No bookings yet. Send a request to start one.'),
-      h('button', { class: 'btn', type: 'button', onclick: () => { S.role = 'organizer'; go('request'); } }, 'Go to Event & matches'));
+      h('button', { class: 'btn', type: 'button', onclick: () => go('home') }, 'Go to Home to switch demo role'));
     const r = S.requests.find((x) => x.id === S.sel) || S.requests[S.requests.length - 1], c = cur(r), st = statusOf(r), confirmed = st === 'confirmed';
     const paid = paidOf(S, r), out = outstandingOf(S, r), pays = S.payments.filter((p) => p.requestId === r.id), logs = S.log.filter((l) => l.requestId === r.id);
     const key = uid('k'), amt = h('input', { inputmode: 'decimal', value: out > 0 ? out / 100 : '' }), note = h('input', { maxlength: 60, placeholder: 'e.g. Advance' }), pe = h('p', { class: 'err', role: 'alert' });
@@ -516,12 +648,14 @@ if (typeof document !== 'undefined') {
   }
 
   /* ---- shell ---- */
-  const VIEWS = { home: ['Home', home], access: ['Login / Sign up', access], discover: ['Artist directory', discover], studio: ['Artist registration', studio], request: ['Event & matches', request], inbox: ['Requests', inbox], booking: ['Bookings', booking] };
+  const VIEWS = { home: ['Home', home], access: ['Login / Sign up', access], discover: ['Artist directory', discover], tourist: ['Events & offerings', tourist], wishlist: ['Wishlist', wishlist], studio: ['Artist registration', studio], request: ['Event & matches', request], inbox: ['Requests', inbox], booking: ['Bookings', booking] };
   function render() {
-    $('nav').hidden = !S.authenticated;
-    $('roles').parentElement.hidden = !S.authenticated;
-    $('banner').hidden = !S.authenticated;
-    $('reset').hidden = !S.authenticated;
+    const visitorMode = ui.visitor && ['tourist', 'discover', 'wishlist'].includes(S.view);
+    $('nav').hidden = !S.authenticated || visitorMode;
+    $('roles').parentElement.hidden = !S.authenticated || visitorMode || S.view !== 'home';
+    $('banner').hidden = !S.authenticated || visitorMode;
+    $('reset').hidden = !S.authenticated || visitorMode;
+    $('back').hidden = ui.history.length === 0;
     $('nav').replaceChildren(...Object.entries(VIEWS).filter(([k]) => k !== 'access').map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
     $('roles').replaceChildren(...ROLES.map((r) => h('button', { type: 'button', 'aria-pressed': String(S.role === r), onclick: () => { S.role = r; save(); render(); } }, roleName(r))));
     $('banner').replaceChildren(h('b', {}, 'Next step'), h('span', {}, nextStep(S, S.role), persist ? '' : ' (Browser storage is unavailable, so changes will not survive a refresh.)'));
@@ -530,9 +664,14 @@ if (typeof document !== 'undefined') {
   $('reset').addEventListener('click', () => {
     if (!confirm('Reset the demo? This erases all requests, payments and profile edits in this browser and restores the seeded fictional data.')) return;
     try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
-    S = seed(); save(); toast('Demo reset to seeded data.'); render();
+    S = seed(); ui.history = []; save(); toast('Demo reset to seeded data.'); render();
   });
-  S = load(); if (!S.authenticated) S.view = 'home'; else if (!VIEWS[S.view] || ['home', 'access'].includes(S.view)) S.view = S.role === 'artist' ? 'studio' : 'request';
+  $('back').addEventListener('click', goBack);
+  S = load();
+  const requestedView = new URLSearchParams(window.location.search).get('view');
+  if (requestedView === 'access') S.view = 'access';
+  else if (!S.authenticated) S.view = 'home';
+  else if (!VIEWS[S.view] || ['home', 'access'].includes(S.view)) S.view = S.role === 'artist' ? 'studio' : 'request';
   render();
 }
 
