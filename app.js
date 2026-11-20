@@ -670,8 +670,7 @@ if (typeof document !== 'undefined') {
   S = load();
   const requestedView = new URLSearchParams(window.location.search).get('view');
   if (requestedView === 'access') S.view = 'access';
-  else if (!S.authenticated) S.view = 'home';
-  else if (!VIEWS[S.view] || ['home', 'access'].includes(S.view)) S.view = S.role === 'artist' ? 'studio' : 'request';
+  else S.view = 'home';
   render();
 }
 
