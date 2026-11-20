@@ -4,6 +4,7 @@
 /* ================= LOGIC (pure, no DOM) ================= */
 const KEY = 'kalasetu.demo.v1';
 const ROLES = ['organizer', 'artist'];
+const EVENT_TYPES = ['Cultural festival', 'College fest', 'Wedding', 'Temple event', 'Community event'];
 const uid = (p) => p + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const nowIso = () => new Date().toISOString();
 const pad = (n) => String(n).padStart(2, '0');
@@ -22,19 +23,19 @@ function inr(p) {
 }
 
 function seed() {
-  const P = (id, name, form, place, region, languages, groupSize, fee, travel, summary, pal) =>
-    ({ id, name, form, place, region, languages, groupSize, feePaise: fee * 100, travelPaise: travel * 100, summary, pal });
+  const P = (id, name, form, place, region, languages, groupSize, fee, travel, summary, pal, skills, eventTypes) =>
+    ({ id, name, form, place, region, languages, groupSize, feePaise: fee * 100, travelPaise: travel * 100, summary, pal, skills, eventTypes, media: [] });
   return {
-    v: 1, role: 'organizer', view: 'discover', sel: null,
+    v: 1, role: 'organizer', view: 'home', authenticated: false, sel: null,
     profiles: [
       P('p1', 'Kaveri Karagattam Troupe', 'Karagattam', 'Thanjavur', 'Tamil Nadu', ['Tamil', 'Telugu', 'English'], 8, 10000, 1000,
-        'Karagattam dancers balancing decorated pots, with live nadaswaram and thavil.', 0),
+        'Karagattam dancers balancing decorated pots, with live nadaswaram and thavil.', 0, ['Karagattam', 'Live folk music', 'Stage performance'], ['College fest', 'Cultural festival', 'Temple event']),
       P('p2', 'Banaras Kajri Sangeet Sabha', 'Kajri', 'Varanasi', 'Uttar Pradesh', ['Hindi', 'Bhojpuri'], 6, 15000, 1500,
-        'Monsoon-season Kajri songs with harmonium, dholak and storytelling.', 1),
+        'Monsoon-season Kajri songs with harmonium, dholak and storytelling.', 1, ['Kajri vocals', 'Harmonium', 'Storytelling'], ['Cultural festival', 'College fest', 'Community event']),
       P('p3', 'Brahmaputra Bihu Dhuli Dol', 'Bihu', 'Jorhat', 'Assam', ['Assamese', 'English'], 12, 12000, 2000,
-        'High-energy Bihu dance with dhol, pepa and gogona.', 2),
+        'High-energy Bihu dance with dhol, pepa and gogona.', 2, ['Bihu dance', 'Dhol', 'Pepa'], ['College fest', 'Cultural festival', 'Community event']),
       P('p4', 'Thar Kalbelia Sangh', 'Kalbelia', 'Jaisalmer', 'Rajasthan', ['Hindi', 'Rajasthani'], 7, 18000, 2500,
-        'Kalbelia dance and desert folk music with khartal and morchang.', 3),
+        'Kalbelia dance and desert folk music with khartal and morchang.', 3, ['Kalbelia dance', 'Khartal', 'Morchang'], ['Wedding', 'Cultural festival', 'Community event']),
     ],
     studio: { intro: '', draft: null }, requests: [], payments: [], log: [],
   };
@@ -97,6 +98,10 @@ function createRequest(S, i) {
   const org = String(i.org || '').trim(), event = String(i.event || '').trim();
   if (!org || !event) return fail('Enter the organizer and event name.');
   if (org.length > 80 || event.length > 80) return fail('Names must be 80 characters or fewer.');
+  if (!EVENT_TYPES.includes(i.eventType)) return fail('Choose an event type.');
+  const location = String(i.location || '').trim(), budget = toPaise(i.budget);
+  if (!location || location.length > 80) return fail('Enter an event location (80 characters or fewer).');
+  if (budget === null || budget <= 0) return fail('Enter a total event budget in rupees.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(i.date || '') || i.date < dateStr(new Date())) return fail('Choose an event date that is today or later.');
   const dur = Number(i.durationMin), gs = Number(i.groupSize);
   if (!Number.isInteger(dur) || dur < 15 || dur > 240) return fail('Duration must be 15–240 minutes.');
@@ -104,7 +109,8 @@ function createRequest(S, i) {
   const perf = toPaise(i.perf), travel = toPaise(i.travel);
   if (perf === null || perf <= 0) return fail('Enter a performance fee in rupees (e.g. 8000).');
   if (travel === null) return fail('Enter travel in rupees (0 if none).');
-  const r = { id: uid('r'), profileId: p.id, org, event, date: i.date, durationMin: dur, groupSize: gs,
+  if (perf + travel > budget) return fail(`The selected artist's total ${inr(perf + travel)} exceeds the event budget ${inr(budget)}.`);
+  const r = { id: uid('r'), profileId: p.id, org, event, eventType: i.eventType, location, budgetPaise: budget, date: i.date, durationMin: dur, groupSize: gs,
     versions: [{ n: 1, by: 'organizer', perfPaise: perf, travelPaise: travel, note: 'Initial request', at: nowIso() }],
     approvals: { organizer: { version: 1 }, artist: null }, declined: null, createdAt: nowIso() };
   S.requests.push(r);
@@ -174,31 +180,54 @@ function publishProfile(S, d) {
   Object.assign(p, { name: d.name.trim().slice(0, 80), form: d.form.trim().slice(0, 40), region: d.region.trim().slice(0, 40),
     place: p.place, groupSize: gs, feePaise: fee, travelPaise: travel,
     languages: String(d.languages || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 8),
+    skills: String(d.skills || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 12),
+    media: d.media === undefined ? (p.media || []) : String(d.media || '').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 12),
     summary: String(d.summary || '').trim().slice(0, 240) });
   return { ok: true };
+}
+function rankProfiles(S, event) {
+  const budget = toPaise(event.budget);
+  const location = String(event.location || '').trim().toLowerCase();
+  return S.profiles.map((p) => {
+    const total = p.feePaise + p.travelPaise;
+    const withinBudget = budget !== null && total <= budget;
+    const eventMatch = (p.eventTypes || []).includes(event.eventType);
+    const localMatch = location && [p.place, p.region].some((place) => location.includes(place.toLowerCase()) || place.toLowerCase().includes(location));
+    const groupFit = Number(event.groupSize || 0) <= p.groupSize;
+    const score = (withinBudget ? 40 : 0) + (eventMatch ? 30 : 0) + (localMatch ? 15 : 5) + (groupFit ? 15 : 0);
+    const reasons = [withinBudget ? 'Budget fit' : 'Over budget', eventMatch ? 'Event fit' : 'Different specialty',
+      localMatch ? 'Nearby' : 'Travel needed', groupFit ? 'Capacity fits' : 'Capacity short'];
+    return { profile: p, score, withinBudget, reasons };
+  }).sort((a, b) => Number(b.withinBudget) - Number(a.withinBudget) || b.score - a.score || a.profile.name.localeCompare(b.profile.name));
 }
 function nextStep(S, role) {
   const r = S.requests.find((x) => x.id === S.sel) || S.requests[S.requests.length - 1];
   if (!r) return role === 'organizer'
-    ? 'Open “Organizer request” and send the prefilled core-demo offer (₹8,000 against a listed ₹10,000).'
-    : 'Optionally polish your profile in “Profile studio”, then switch demo role to Organizer to send a request.';
+    ? 'Open “Event & matches” to add event details, compare ranked artists, and send a booking request.'
+    : 'Complete your group profile in “Artist registration” so organizers can find you in ranked matches.';
   const st = statusOf(r);
-  if (st === 'declined') return 'This request was declined. Start a new one from “Organizer request”.';
-  if (st === 'awaiting_artist') return role === 'artist' ? 'Review the request in “Artist inbox”: accept the exception explicitly, counter, or decline.' : 'Waiting for artist review — nothing is confirmed. Switch demo role to Artist and open “Artist inbox”.';
-  if (st === 'awaiting_organizer') return role === 'organizer' ? 'The artist sent new terms. Approve the current version (or counter) in “Artist inbox”.' : 'Waiting for the organizer to approve the current version. Switch demo role to Organizer.';
+  if (st === 'declined') return 'This request was declined. Start a new one from “Event & matches”.';
+  if (st === 'awaiting_artist') return role === 'artist' ? 'Review the request in “Requests”: accept the exception explicitly, counter, or decline.' : 'Waiting for artist review — nothing is confirmed. Switch demo role to Artist and open “Requests”.';
+  if (st === 'awaiting_organizer') return role === 'organizer' ? 'The artist sent new terms. Approve the current version (or counter) in “Requests”.' : 'Waiting for the organizer to approve the current version. Switch demo role to Organizer.';
   const o = outstandingOf(S, r);
-  if (o > 0) return role === 'organizer' ? `Booking confirmed. Next: simulate a payment in “Booking workspace” — ${inr(o)} outstanding.` : `Booking confirmed. ${inr(o)} outstanding; switch to Organizer to simulate payments.`;
+  if (o > 0) return role === 'organizer' ? `Booking confirmed. Next: simulate a payment in “Bookings” — ${inr(o)} outstanding.` : `Booking confirmed. ${inr(o)} outstanding; switch to Organizer to simulate payments.`;
   return 'Fully paid (simulated). Nothing outstanding.';
 }
 
 /* ================= UI ================= */
 if (typeof document !== 'undefined') {
   let S, persist = true;
-  const ui = { reqProfile: 'p1', f: { region: '', form: '', fee: '', size: '' } };
+  const ui = { reqProfile: 'p1', accessRole: 'organizer', accountMode: 'login', mediaNames: [], f: { region: '', form: '', fee: '', size: '' } };
   const $ = (id) => document.getElementById(id);
 
   function load() {
-    try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1 && Array.isArray(s.profiles) && Array.isArray(s.requests)) return s; } catch (e) { /* fall through */ }
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if (s && s.v === 1 && Array.isArray(s.profiles) && Array.isArray(s.requests)) {
+        if (typeof s.authenticated !== 'boolean') { s.authenticated = false; s.view = 'home'; }
+        return s;
+      }
+    } catch (e) { /* fall through */ }
     return seed();
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { persist = false; } }
@@ -220,7 +249,7 @@ if (typeof document !== 'undefined') {
     const C = [['#A65F43', '#AF9058', '#F5EBDD'], ['#34483D', '#AF9058', '#F5EBDD'], ['#30251F', '#A65F43', '#AF9058'], ['#AF9058', '#34483D', '#30251F']][pal % 4];
     let petals = '';
     for (let i = 0; i < 12; i++) petals += `<ellipse cx="100" cy="34" rx="7" ry="20" fill="${C[1]}" opacity="${i % 2 ? .95 : .6}" transform="rotate(${i * 30} 100 66)"/>`;
-    return svg(`<svg viewBox="0 0 200 120" role="img" aria-label="Decorative folk motif"><rect width="200" height="120" fill="${C[0]}"/>
+    return svg(`<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Decorative folk motif"><rect width="200" height="120" fill="${C[0]}"/>
       <path d="M0 120V96q25-14 50 0t50 0 50 0 50 0v24z" fill="${C[2]}" opacity=".25"/>${petals}
       <circle cx="100" cy="66" r="19" fill="${C[2]}"/><circle cx="100" cy="66" r="11" fill="${C[0]}"/><circle cx="100" cy="66" r="4" fill="${C[1]}"/>
       <path d="M12 108h176M24 108V98a9 9 0 0 1 18 0v10M158 108V98a9 9 0 0 1 18 0v10" fill="none" stroke="${C[2]}" stroke-width="2" opacity=".7"/></svg>`);
@@ -228,7 +257,7 @@ if (typeof document !== 'undefined') {
 
   const fmt = (iso) => new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
   const fmtDate = (d) => new Date(d + 'T00:00').toLocaleDateString('en-IN', { dateStyle: 'medium' });
-  const label = (r) => ({ confirmed: 'Confirmed', awaiting_artist: 'Awaiting artist', awaiting_organizer: 'Awaiting organizer', declined: 'Declined' }[statusOf(r)]);
+  const label = (r) => statusOf(r) === 'confirmed' && outstandingOf(S, r) === 0 ? 'Completed' : ({ confirmed: 'Confirmed', awaiting_artist: 'Awaiting artist', awaiting_organizer: 'Awaiting organizer', declined: 'Declined' }[statusOf(r)]);
   const badge = (r) => h('span', { class: 'badge ' + statusOf(r) }, label(r));
   const roleName = (x) => ({ organizer: 'Organizer', artist: 'Artist', system: 'System' }[x]);
 
@@ -245,6 +274,41 @@ if (typeof document !== 'undefined') {
   function gate(role, title) {
     return h('div', { class: 'empty' }, h('h2', {}, title), h('p', {}, `This screen is used by the ${roleName(role)} role. Demo switching only — it is not authentication.`),
       h('button', { class: 'btn', type: 'button', onclick: () => { S.role = role; save(); render(); } }, `Switch demo role to ${roleName(role)}`));
+  }
+
+  function home() {
+    const joinAsArtist = () => { ui.accessRole = 'artist'; ui.accountMode = 'signup'; go('access'); };
+    return h('section', { class: 'home' },
+      h('section', { class: 'home-hero' },
+        h('div', { class: 'home-copy' }, h('p', { class: 'eyebrow' }, 'A stage for living traditions'),
+          h('h2', { class: 'home-title' }, 'Folk art belongs on every stage.'),
+          h('p', { class: 'home-intro' }, 'Discover folk performers, share a profile rooted in your practice, and agree on booking terms directly.'),
+          h('div', { class: 'row home-actions' },
+            h('button', { class: 'btn', type: 'button', onclick: () => go('access') }, 'Find artists'),
+            h('button', { class: 'btn ghost', type: 'button', onclick: joinAsArtist }, 'Join as an artist')),
+          h('p', { class: 'muted home-note' }, 'Four fictional artist groups · Booking and payments are simulated.')),
+        h('div', { class: 'home-artwork' }, S.profiles.slice(0, 3).map((p, index) => h('figure', { class: 'home-art ' + (index === 0 ? 'home-art-main' : '') },
+          art(p.pal), h('figcaption', {}, h('span', {}, `${p.form} · ${p.region}`), h('b', {}, p.name)))))),
+      h('section', { class: 'home-steps' }, h('h2', {}, 'A clear path from discovery to performance'),
+        h('div', { class: 'home-step-grid' },
+          h('article', {}, h('span', { class: 'home-step-number' }, '01'), h('h3', {}, 'Describe your event'), h('p', {}, 'Set a date, location and budget to find suitable groups.')),
+          h('article', {}, h('span', { class: 'home-step-number' }, '02'), h('h3', {}, 'Agree on the terms'), h('p', {}, 'Artists can accept, counter or decline each request.')),
+          h('article', {}, h('span', { class: 'home-step-number' }, '03'), h('h3', {}, 'Track the booking'), h('p', {}, 'Follow approvals and simulated payments in one workspace.')))));
+  }
+
+  function access() {
+    const mode = (value) => h('button', { type: 'button', class: 'btn ghost', 'aria-pressed': String(ui.accountMode === value), onclick: () => { ui.accountMode = value; render(); } }, value === 'login' ? 'Log in' : 'Sign up');
+    const role = (value) => h('button', { type: 'button', class: 'role-choice', 'aria-pressed': String(ui.accessRole === value), onclick: () => { ui.accessRole = value; render(); } },
+      h('b', {}, roleName(value)), h('span', {}, value === 'artist' ? 'Register your art and performance profile' : 'Plan an event and find performers'));
+    return h('section', { class: 'access' }, h('p', { class: 'eyebrow' }, 'A fairer stage for folk artists'), h('h2', {}, 'Login / Sign up'),
+      h('p', { class: 'muted' }, 'Choose a demo role to enter KalaSetu. This prototype does not create accounts or collect credentials.'),
+      h('div', { class: 'row mode-switch', role: 'group', 'aria-label': 'Account action' }, mode('login'), mode('signup')),
+      h('div', { class: 'role-choices', role: 'group', 'aria-label': 'Choose your role' }, role('artist'), role('organizer')),
+      h('button', { class: 'btn', type: 'button', onclick: () => {
+        S.role = ui.accessRole; S.authenticated = true; S.view = S.role === 'artist' ? 'studio' : 'request'; save(); render(); window.scrollTo(0, 0);
+      } }, `${ui.accountMode === 'login' ? 'Log in' : 'Sign up'} as ${roleName(ui.accessRole)}`),
+      h('p', { class: 'muted' }, 'Demo access only · No password, real account, or authentication service.'),
+      h('button', { class: 'btn ghost home-back', type: 'button', onclick: () => go('home') }, 'Back to home'));
   }
 
   /* ---- 1. Discover ---- */
@@ -264,7 +328,8 @@ if (typeof document !== 'undefined') {
       list.length ? h('div', { class: 'grid' }, list.map((p) => h('article', { class: 'card art' }, art(p.pal),
         h('div', { class: 'body' }, h('span', { class: 'tag' }, 'Fictional demo profile'), h('h3', {}, p.name),
           h('div', { class: 'muted' }, `${p.form} · ${p.place}, ${p.region}`), h('p', { style: 'margin:0' }, p.summary),
-          h('div', { class: 'chips' }, p.languages.map((l) => h('span', { class: 'chip' }, l))),
+          h('div', { class: 'chips' }, [...p.languages, ...(p.skills || [])].map((l) => h('span', { class: 'chip' }, l))),
+          (p.media || []).length > 0 && h('p', { class: 'muted media-note' }, `${p.media.length} portfolio file name${p.media.length === 1 ? '' : 's'} on profile`),
           h('div', { class: 'stats' }, h('span', {}, h('b', {}, inr(p.feePaise)), 'listed fee'), h('span', {}, h('b', {}, inr(p.travelPaise)), 'travel'), h('span', {}, h('b', {}, p.groupSize), 'artists')),
           h('button', { class: 'btn', type: 'button', onclick: () => { ui.reqProfile = p.id; go('request'); } }, 'Request booking')))))
         : h('div', { class: 'empty' }, h('h3', {}, 'No groups match these filters'), h('p', {}, 'Try widening the fee or group size.')));
@@ -274,7 +339,7 @@ if (typeof document !== 'undefined') {
   function studio() {
     if (S.role !== 'artist') return gate('artist', 'Profile studio');
     const mine = S.profiles[0], d = S.studio.draft || { name: mine.name, form: mine.form, region: mine.region, groupSize: mine.groupSize,
-      languages: mine.languages, fee: mine.feePaise / 100, travel: mine.travelPaise / 100, summary: mine.summary };
+      languages: mine.languages, skills: mine.skills || [], fee: mine.feePaise / 100, travel: mine.travelPaise / 100, summary: mine.summary };
     const intro = h('textarea', { maxlength: 1200, placeholder: 'Introduce your group in your own words…', 'aria-label': 'Introduction' }); intro.value = S.studio.intro;
     const err = h('p', { class: 'err', role: 'alert' });
     const gen = () => {
@@ -285,27 +350,36 @@ if (typeof document !== 'undefined') {
     const F = {
       name: h('input', { value: d.name, maxlength: 80 }), form: h('input', { value: d.form, maxlength: 40 }), region: h('input', { value: d.region, maxlength: 40 }),
       groupSize: h('input', { type: 'number', min: 1, max: 50, value: d.groupSize }), languages: h('input', { value: (d.languages || []).join(', ') }),
+      skills: h('input', { value: (d.skills || mine.skills || []).join(', '), placeholder: 'e.g. live folk music, stage performance' }),
       fee: h('input', { inputmode: 'decimal', value: d.fee }), travel: h('input', { inputmode: 'decimal', value: d.travel }),
       summary: h('textarea', { maxlength: 240, style: 'min-height:70px' }),
     };
     F.summary.value = d.summary || '';
+    const media = h('input', { type: 'file', accept: 'image/*,video/*', multiple: true, 'aria-label': 'Choose photos or videos' });
+    const mediaList = h('p', { class: 'muted' }, (mine.media || []).length ? `Selected profile media: ${mine.media.join(', ')}` : 'No media selected.');
+    media.addEventListener('change', () => {
+      ui.mediaNames = [...media.files].map((file) => file.name).slice(0, 12);
+      mediaList.textContent = ui.mediaNames.length ? `Selected: ${ui.mediaNames.join(', ')}` : 'No media selected.';
+    });
     const approveBtn = h('button', { class: 'btn alt', type: 'button', onclick: () => {
       const vals = Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value]));
+      if (ui.mediaNames.length) vals.media = ui.mediaNames.join('\n');
       const res = publishProfile(S, vals);
       if (!res.ok) { err.textContent = res.error; return; }
       S.studio.draft = null; done(res, 'Profile approved and published. Existing requests keep their agreed terms.');
     } }, 'Approve & publish profile');
-    return h('section', {}, h('h2', {}, 'Profile studio'), h('p', { class: 'muted' }, 'Introduction → structured draft → your approval. Nothing is published until you approve.'),
+    return h('section', {}, h('h2', {}, 'Artist registration'), h('p', { class: 'muted' }, 'Introduction → structured draft → your approval. Nothing is published until you approve.'),
       h('div', { class: 'cols' },
         h('div', { class: 'card' }, h('h3', {}, '1 · Introduce your group'), intro,
           h('div', { class: 'row', style: 'margin-top:.6rem' },
             h('button', { class: 'btn ghost', type: 'button', onclick: () => { intro.value = SAMPLE_INTRO; } }, 'Use sample introduction'),
             h('button', { class: 'btn', type: 'button', onclick: gen }, 'Generate profile draft')),
           h('p', { class: 'muted' }, h('b', {}, 'Demo extraction—not live AI.'), ' Rule-based parsing of typed text; typing always works and speech is not included.')),
-        h('div', { class: 'card' }, h('h3', {}, '2 · Review & approve draft'),
+        h('div', { class: 'card' }, h('h3', {}, '2 · Complete artist registration'),
           h('div', { class: 'form' }, field('Group name', F.name), field('Art form', F.form), field('Region', F.region), field('Group size', F.groupSize),
             field('Listed performance fee (₹)', F.fee, 'Only changes when you approve here'), field('Listed travel (₹)', F.travel),
-            field('Languages', F.languages, 'Comma separated', true), field('Summary', F.summary, '', true)),
+            field('Languages', F.languages, 'Comma separated', true), field('Skills', F.skills, 'Comma separated', true), field('Summary', F.summary, '', true),
+            field('Photos and videos', media, 'Selected filenames are saved in this browser demo; files are not uploaded.', true), mediaList),
           err, h('div', { class: 'row', style: 'margin-top:.6rem' }, approveBtn),
           h('p', { class: 'muted' }, `Currently published: ${mine.name} — ${inr(mine.feePaise)} + ${inr(mine.travelPaise)} travel.`))));
   }
@@ -313,33 +387,55 @@ if (typeof document !== 'undefined') {
   /* ---- 3. Organizer request ---- */
   function request() {
     if (S.role !== 'organizer') return gate('organizer', 'Organizer request');
-    const sel = h('select', {}, S.profiles.map((p) => h('option', { value: p.id }, `${p.name} — ${p.form}`))); sel.value = ui.reqProfile;
     const I = { org: h('input', { value: 'Sunrise College (fictional)', maxlength: 80 }), event: h('input', { value: 'Annual Cultural Fest', maxlength: 80 }),
-      date: h('input', { type: 'date', value: plusDays(30), min: dateStr(new Date()) }), dur: h('input', { type: 'number', min: 15, max: 240, value: 45 }),
+      eventType: h('select', {}, EVENT_TYPES.map((type) => h('option', { value: type, selected: type === 'College fest' }, type))),
+      location: h('input', { value: 'Thanjavur, Tamil Nadu', maxlength: 80 }), date: h('input', { type: 'date', value: plusDays(30), min: dateStr(new Date()) }),
+      budget: money(1500000, 'Total event budget'), dur: h('input', { type: 'number', min: 15, max: 240, value: 45 }),
       gs: h('input', { type: 'number', min: 1, max: 50, value: 8 }), perf: money(800000, 'Offered fee'), travel: money(100000, 'Travel') };
     const err = h('p', { class: 'err', role: 'alert' }), prev = h('div', { 'aria-live': 'polite' });
-    const read = () => ({ profileId: sel.value, org: I.org.value, event: I.event.value, date: I.date.value, durationMin: I.dur.value, groupSize: I.gs.value, perf: I.perf.value, travel: I.travel.value });
+    const matches = h('div', { class: 'grid match-grid', 'aria-live': 'polite' });
+    const read = () => ({ profileId: ui.reqProfile, org: I.org.value, event: I.event.value, eventType: I.eventType.value, location: I.location.value,
+      budget: I.budget.value, date: I.date.value, durationMin: I.dur.value, groupSize: I.gs.value, perf: I.perf.value, travel: I.travel.value });
     const preview = () => {
-      const p = S.profiles.find((x) => x.id === sel.value), v = read(), perf = toPaise(v.perf), tr = toPaise(v.travel);
+      const v = read(), budget = toPaise(v.budget), ranked = rankProfiles(S, v);
       prev.replaceChildren();
-      if (!p || perf === null || tr === null) return;
-      const fl = flagsFor(S, { profileId: p.id, groupSize: Number(v.groupSize) || 0 }, { perfPaise: perf, travelPaise: tr });
-      prev.append(...(fl.length ? fl.map((t) => h('div', { class: 'flag' }, '⚑ ', t, ' It will go to the artist for review; nothing changes automatically.'))
-        : [h('p', { class: 'ok' }, 'Matches the artist’s listed terms.')]));
+      matches.replaceChildren();
+      if (budget === null || budget <= 0) { prev.append(h('div', { class: 'flag' }, 'Enter a total event budget to see eligible artists.')); return; }
+      const selected = S.profiles.find((p) => p.id === v.profileId);
+      if (selected) {
+        const perf = toPaise(v.perf), tr = toPaise(v.travel);
+        if (perf !== null && tr !== null) {
+          const flags = flagsFor(S, { profileId: selected.id, groupSize: Number(v.groupSize) || 0 }, { perfPaise: perf, travelPaise: tr });
+          prev.append(...(flags.length ? flags.map((text) => h('div', { class: 'flag' }, 'Offer review: ', text, ' Artist approval is required.'))
+            : [h('p', { class: 'ok' }, 'Your offer matches the selected artist’s listed terms.') ]));
+        }
+      }
+      ranked.forEach((match, index) => {
+        const p = match.profile, selectedMatch = p.id === ui.reqProfile;
+        matches.append(h('article', { class: 'card match-card' }, h('div', { class: 'match-top' }, h('span', { class: 'tag' }, `#${index + 1} · ${match.score}% match`),
+          h('span', { class: match.withinBudget ? 'ok' : 'muted' }, match.withinBudget ? 'Within budget' : 'Over budget')),
+          h('h3', {}, p.name), h('p', { class: 'muted' }, `${p.form} · ${p.place}, ${p.region}`),
+          h('div', { class: 'match-reasons' }, match.reasons.map((reason) => h('span', { class: 'chip' }, reason))),
+          h('div', { class: 'stats' }, h('span', {}, h('b', {}, inr(p.feePaise + p.travelPaise)), 'total'), h('span', {}, h('b', {}, p.groupSize), 'artists')),
+          h('button', { class: selectedMatch ? 'btn alt' : 'btn ghost', type: 'button', 'aria-pressed': String(selectedMatch), disabled: !match.withinBudget,
+            onclick: () => { ui.reqProfile = p.id; I.perf.value = p.feePaise / 100; I.travel.value = p.travelPaise / 100; preview(); } },
+          selectedMatch ? 'Selected artist' : match.withinBudget ? 'Select artist' : 'Over budget')));
+      });
     };
-    [sel, ...Object.values(I)].forEach((el) => el.addEventListener('input', preview));
-    sel.addEventListener('change', () => { ui.reqProfile = sel.value; const p = S.profiles.find((x) => x.id === sel.value); I.perf.value = p.feePaise / 100; I.travel.value = p.travelPaise / 100; preview(); });
+    Object.values(I).forEach((el) => { el.addEventListener('input', preview); el.addEventListener('change', preview); });
     preview();
-    return h('section', {}, h('h2', {}, 'Organizer request'), h('p', { class: 'muted' }, 'Prefilled with the core demo: a college wants a 45-minute performance and offers ₹8,000 against a listed ₹10,000. Fictional organizer.'),
-      h('div', { class: 'card' }, h('div', { class: 'form' },
-        field('Artist group', sel, '', true), field('Organizer', I.org), field('Event name', I.event), field('Event date', I.date), field('Duration (minutes)', I.dur),
-        field('Performers requested', I.gs), field('Offered performance fee (₹)', I.perf), field('Travel offered (₹)', I.travel)),
+    return h('section', {}, h('h2', {}, 'Organizer dashboard'), h('p', { class: 'muted' }, 'Describe your event, compare ranked artist matches, then send a booking request. Suggestions use transparent demo rules, not live AI.'),
+      h('div', { class: 'card' }, h('h3', {}, 'Event details'), h('div', { class: 'form' },
+        field('Organizer', I.org), field('Event name', I.event), field('Event type', I.eventType), field('Event location', I.location), field('Event date', I.date),
+        field('Total artist budget (₹)', I.budget), field('Performance duration (minutes)', I.dur), field('Performers requested', I.gs)),
+        h('h3', { style: 'margin-top:1rem' }, 'Ranked artist matches'), matches,
+        h('h3', { style: 'margin-top:1rem' }, 'Booking offer'), h('div', { class: 'form' }, field('Offered performance fee (₹)', I.perf), field('Travel offered (₹)', I.travel)),
         prev, err, h('div', { class: 'row', style: 'margin-top:.6rem' }, h('button', { class: 'btn', type: 'button', onclick: (ev) => {
           const res = createRequest(S, read());
           if (!res.ok) { err.textContent = res.error; return; }
           ev.target.disabled = true; S.sel = res.request.id; S.view = 'inbox'; save();
           toast(res.flags.length ? 'Request sent and flagged — waiting for artist review.' : 'Request sent.'); render(); window.scrollTo(0, 0);
-        } }, 'Send request'))));
+        } }, 'Send booking request'))));
   }
 
   /* ---- shared request pieces ---- */
@@ -347,7 +443,8 @@ if (typeof document !== 'undefined') {
   function summary(r) {
     const p = profileOf(S, r), c = cur(r), fl = flagsFor(S, r, c);
     return h('div', {}, h('div', { class: 'row' }, h('h3', { style: 'margin:0' }, `${r.event} — ${r.org}`), badge(r)),
-      h('p', { class: 'muted', style: 'margin:.2rem 0' }, `${p.name} · ${fmtDate(r.date)} · ${r.durationMin} min · ${r.groupSize} performers`),
+      h('p', { class: 'muted', style: 'margin:.2rem 0' }, [r.eventType || 'Event', r.location || p.region, r.budgetPaise != null && `budget ${inr(r.budgetPaise)}`,
+        fmtDate(r.date), `${r.durationMin} min`, `${r.groupSize} performers`].filter(Boolean).join(' · ')),
       h('p', { style: 'margin:.2rem 0' }, h('b', {}, `v${c.n} by ${roleName(c.by)}: `), termsLine(r, c)),
       fl.map((t) => h('div', { class: 'flag' }, '⚑ ', t)));
   }
@@ -383,7 +480,7 @@ if (typeof document !== 'undefined') {
   /* ---- 5. Booking workspace ---- */
   function booking() {
     if (!S.requests.length) return h('div', { class: 'empty' }, h('h2', {}, 'Booking workspace'), h('p', {}, 'No bookings yet. Send a request to start one.'),
-      h('button', { class: 'btn', type: 'button', onclick: () => { S.role = 'organizer'; go('request'); } }, 'Go to Organizer request'));
+      h('button', { class: 'btn', type: 'button', onclick: () => { S.role = 'organizer'; go('request'); } }, 'Go to Event & matches'));
     const r = S.requests.find((x) => x.id === S.sel) || S.requests[S.requests.length - 1], c = cur(r), st = statusOf(r), confirmed = st === 'confirmed';
     const paid = paidOf(S, r), out = outstandingOf(S, r), pays = S.payments.filter((p) => p.requestId === r.id), logs = S.log.filter((l) => l.requestId === r.id);
     const key = uid('k'), amt = h('input', { inputmode: 'decimal', value: out > 0 ? out / 100 : '' }), note = h('input', { maxlength: 60, placeholder: 'e.g. Advance' }), pe = h('p', { class: 'err', role: 'alert' });
@@ -395,7 +492,7 @@ if (typeof document !== 'undefined') {
     } }, 'Simulate payment');
     const ap = (role) => { const a = r.approvals[role]; return a && a.version === c.n ? `✓ approved v${c.n}${a.exception ? ' (exception accepted)' : ''}` : 'pending'; };
     const diff = (v, i) => { const p = r.versions[i - 1]; return p ? [v.perfPaise !== p.perfPaise && `fee ${inr(p.perfPaise)} → ${inr(v.perfPaise)}`, v.travelPaise !== p.travelPaise && `travel ${inr(p.travelPaise)} → ${inr(v.travelPaise)}`].filter(Boolean).join('; ') : ''; };
-    return h('section', {}, h('h2', {}, 'Booking workspace'),
+    return h('section', {}, h('h2', {}, out === 0 && confirmed ? 'Booking completed' : 'Booking workspace'),
       S.requests.length > 1 && h('div', { class: 'row', style: 'margin:.5rem 0' }, h('label', {}, 'Request', h('select', { onchange: (e) => { S.sel = e.target.value; save(); render(); } },
         S.requests.map((x) => h('option', { value: x.id, selected: x.id === r.id }, `${x.event} — ${x.org} (${label(x)})`))))),
       h('div', { class: 'card' }, summary(r)),
@@ -419,9 +516,13 @@ if (typeof document !== 'undefined') {
   }
 
   /* ---- shell ---- */
-  const VIEWS = { discover: ['Discover', discover], studio: ['Profile studio', studio], request: ['Organizer request', request], inbox: ['Artist inbox', inbox], booking: ['Booking workspace', booking] };
+  const VIEWS = { home: ['Home', home], access: ['Login / Sign up', access], discover: ['Artist directory', discover], studio: ['Artist registration', studio], request: ['Event & matches', request], inbox: ['Requests', inbox], booking: ['Bookings', booking] };
   function render() {
-    $('nav').replaceChildren(...Object.entries(VIEWS).map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
+    $('nav').hidden = !S.authenticated;
+    $('roles').parentElement.hidden = !S.authenticated;
+    $('banner').hidden = !S.authenticated;
+    $('reset').hidden = !S.authenticated;
+    $('nav').replaceChildren(...Object.entries(VIEWS).filter(([k]) => k !== 'access').map(([k, [t]]) => h('button', { type: 'button', 'aria-current': S.view === k ? 'page' : null, onclick: () => go(k) }, t)));
     $('roles').replaceChildren(...ROLES.map((r) => h('button', { type: 'button', 'aria-pressed': String(S.role === r), onclick: () => { S.role = r; save(); render(); } }, roleName(r))));
     $('banner').replaceChildren(h('b', {}, 'Next step'), h('span', {}, nextStep(S, S.role), persist ? '' : ' (Browser storage is unavailable, so changes will not survive a refresh.)'));
     $('app').replaceChildren(VIEWS[S.view][1]());
@@ -431,7 +532,7 @@ if (typeof document !== 'undefined') {
     try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
     S = seed(); save(); toast('Demo reset to seeded data.'); render();
   });
-  S = load(); if (!VIEWS[S.view]) S.view = 'discover';
+  S = load(); if (!S.authenticated) S.view = 'home'; else if (!VIEWS[S.view] || ['home', 'access'].includes(S.view)) S.view = S.role === 'artist' ? 'studio' : 'request';
   render();
 }
 
