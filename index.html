@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KalaSetu — Your art. Your terms.</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 48 32" aria-hidden="true"><path d="M2 28h44M6 28V16a8 8 0 0 1 16 0v12M26 28V16a8 8 0 0 1 16 0v12" fill="none" stroke="#AF9058" stroke-width="2.4" stroke-linecap="round"/><circle cx="24" cy="5" r="2.6" fill="#A65F43"/></svg>
+    <div><h1>KalaSetu</h1><p>Your art. Your terms.</p></div>
+  </div>
+  <nav id="nav" aria-label="Main"></nav>
+  <div class="tools">
+    <div class="role" role="group" aria-label="Switch demo role">
+      <span class="role-label">Switch demo role <small>(demo only — not authentication)</small></span>
+      <div id="roles"></div>
+    </div>
+    <button id="reset" class="btn ghost" type="button">Reset demo</button>
+  </div>
+</header>
+<div class="stripe" aria-hidden="true"></div>
+<main>
+  <section id="banner" class="banner" aria-live="polite"></section>
+  <div id="app"></div>
+</main>
+<footer>Fictional demo data · Payments are simulated · “Demo extraction—not live AI.” · Browser demo stored in this browser only; not a secure production system.</footer>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
